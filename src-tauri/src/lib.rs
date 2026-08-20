@@ -1,12 +1,15 @@
 use std::{
-    collections::VecDeque,
+    collections::{BTreeMap, HashMap, HashSet, VecDeque},
     fs::{self, File},
+    io::Write,
     path::{Component, Path, PathBuf},
     sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use flate2::read::GzDecoder;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_shell::{
     process::{CommandChild, CommandEvent},
@@ -16,7 +19,64 @@ use url::Url;
 
 const HARNESS_VERSION: &str = "0.1.0-rc.8";
 const HARNESS_DATA_SCHEMA: &str = "rc8";
+const HARNESS_MIGRATION_VERSION: &str = "workspace-v1";
 const MAX_DIAGNOSTIC_LINES: usize = 12;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct StorageUnit {
+    name: String,
+    version: u64,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceGlobal {
+    initialized: bool,
+    workspace_ids: Vec<String>,
+    #[serde(default)]
+    archived_session_ids: Vec<String>,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceRecord {
+    path: String,
+    title: String,
+    session_ids: Vec<String>,
+    created_at: String,
+    updated_at: String,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct WorkspaceTables {
+    workspaces: BTreeMap<String, WorkspaceRecord>,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct WorkspaceStorage {
+    unit: StorageUnit,
+    global: WorkspaceGlobal,
+    tables: WorkspaceTables,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MigrationMarker {
+    version: &'static str,
+    migrated_at_unix_seconds: u64,
+    imported_workspaces: usize,
+    imported_sessions: usize,
+}
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -119,14 +179,16 @@ impl BackendManager {
         emit_status(&app, BackendStatus::starting());
         let entry = ensure_harness_runtime(&resource_dir, &data_dir)?;
 
-        // rc.8 introduced an incompatible SQLite storage layout. Keep the
-        // previous Harness home intact so upgrades start safely and rollback
-        // remains possible.
-        let dsh_home = data_dir.join("harness").join(HARNESS_DATA_SCHEMA);
+        // rc.8 uses an isolated home because its storage layout differs from
+        // earlier releases. Import durable user data before the backend opens
+        // the new home, while keeping the legacy home intact for rollback.
+        let legacy_dsh_home = data_dir.join("harness");
+        let dsh_home = legacy_dsh_home.join(HARNESS_DATA_SCHEMA);
         let agents_home = data_dir.join("agents");
         fs::create_dir_all(&dsh_home)
             .and_then(|_| fs::create_dir_all(&agents_home))
             .map_err(|error| format!("无法准备 Harness 数据目录：{error}"))?;
+        migrate_legacy_harness_data(&legacy_dsh_home, &dsh_home)?;
 
         let command = app
             .shell()
@@ -222,6 +284,282 @@ impl BackendManager {
 
         Ok(self.status().await)
     }
+}
+
+fn migrate_legacy_harness_data(legacy_home: &Path, target_home: &Path) -> Result<(), String> {
+    let marker_path = target_home.join(format!(
+        ".dsh-desktop-migration-{HARNESS_MIGRATION_VERSION}.json"
+    ));
+    if marker_path.is_file() {
+        return Ok(());
+    }
+
+    let legacy_workspace_path = legacy_home.join("storages").join("workspace.json");
+    let target_workspace_path = target_home.join("storages").join("workspace.json");
+    recover_interrupted_atomic_write(&target_workspace_path)?;
+
+    let mut imported_workspaces = 0;
+    let mut imported_sessions = 0;
+    if legacy_workspace_path.is_file() {
+        let legacy_workspace = read_workspace_storage(&legacy_workspace_path)?;
+        validate_workspace_storage(&legacy_workspace, &legacy_workspace_path)?;
+
+        let mut target_workspace = if target_workspace_path.is_file() {
+            let target_workspace = read_workspace_storage(&target_workspace_path)?;
+            validate_workspace_storage(&target_workspace, &target_workspace_path)?;
+            target_workspace
+        } else {
+            WorkspaceStorage {
+                unit: legacy_workspace.unit.clone(),
+                global: WorkspaceGlobal {
+                    initialized: false,
+                    workspace_ids: Vec::new(),
+                    archived_session_ids: Vec::new(),
+                    extra: Map::new(),
+                },
+                tables: WorkspaceTables {
+                    workspaces: BTreeMap::new(),
+                    extra: Map::new(),
+                },
+                extra: Map::new(),
+            }
+        };
+
+        imported_workspaces = merge_workspace_storage(&mut target_workspace, &legacy_workspace)?;
+
+        if target_workspace_path.is_file() {
+            let backup_dir = legacy_home
+                .join("migration-backups")
+                .join(HARNESS_MIGRATION_VERSION);
+            fs::create_dir_all(&backup_dir)
+                .map_err(|error| format!("无法创建迁移备份目录：{error}"))?;
+            let backup_path = backup_dir.join("workspace.before-migration.json");
+            if !backup_path.exists() {
+                fs::copy(&target_workspace_path, &backup_path)
+                    .map_err(|error| format!("无法备份当前工作区数据：{error}"))?;
+            }
+        }
+
+        write_json_atomically(&target_workspace_path, &target_workspace)?;
+        imported_sessions =
+            copy_missing_tree(&legacy_home.join("sessions"), &target_home.join("sessions"))?;
+    }
+
+    let marker = MigrationMarker {
+        version: HARNESS_MIGRATION_VERSION,
+        migrated_at_unix_seconds: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs(),
+        imported_workspaces,
+        imported_sessions,
+    };
+    write_json_atomically(&marker_path, &marker)?;
+    log::info!(
+        "Harness data migration completed: {imported_workspaces} workspaces, {imported_sessions} session files"
+    );
+    Ok(())
+}
+
+fn read_workspace_storage(path: &Path) -> Result<WorkspaceStorage, String> {
+    let data = fs::read(path)
+        .map_err(|error| format!("无法读取工作区数据 {}：{error}", path.display()))?;
+    serde_json::from_slice(&data)
+        .map_err(|error| format!("无法解析工作区数据 {}：{error}", path.display()))
+}
+
+fn validate_workspace_storage(storage: &WorkspaceStorage, path: &Path) -> Result<(), String> {
+    if storage.unit.name != "workspace" || storage.unit.version != 2 {
+        return Err(format!(
+            "工作区数据格式不受支持 {}（{} v{}）",
+            path.display(),
+            storage.unit.name,
+            storage.unit.version
+        ));
+    }
+    Ok(())
+}
+
+fn merge_workspace_storage(
+    target: &mut WorkspaceStorage,
+    legacy: &WorkspaceStorage,
+) -> Result<usize, String> {
+    let mut imported = 0;
+    let mut path_index = target
+        .tables
+        .workspaces
+        .iter()
+        .map(|(id, workspace)| (workspace.path.clone(), id.clone()))
+        .collect::<HashMap<_, _>>();
+    let mut target_order = target
+        .global
+        .workspace_ids
+        .iter()
+        .cloned()
+        .collect::<HashSet<_>>();
+
+    for legacy_id in &legacy.global.workspace_ids {
+        let legacy_workspace = legacy
+            .tables
+            .workspaces
+            .get(legacy_id)
+            .ok_or_else(|| format!("旧工作区索引引用了不存在的记录：{legacy_id}"))?;
+
+        let target_id = if let Some(existing) = target.tables.workspaces.get(legacy_id) {
+            if existing.path != legacy_workspace.path {
+                return Err(format!(
+                    "工作区标识冲突：{legacy_id} 同时指向 {} 和 {}",
+                    existing.path, legacy_workspace.path
+                ));
+            }
+            legacy_id.clone()
+        } else if let Some(existing_id) = path_index.get(&legacy_workspace.path) {
+            existing_id.clone()
+        } else {
+            target
+                .tables
+                .workspaces
+                .insert(legacy_id.clone(), legacy_workspace.clone());
+            path_index.insert(legacy_workspace.path.clone(), legacy_id.clone());
+            imported += 1;
+            legacy_id.clone()
+        };
+
+        let target_workspace = target
+            .tables
+            .workspaces
+            .get_mut(&target_id)
+            .ok_or_else(|| format!("无法定位迁移后的工作区：{target_id}"))?;
+        let mut known_sessions = target_workspace
+            .session_ids
+            .iter()
+            .cloned()
+            .collect::<HashSet<_>>();
+        for session_id in &legacy_workspace.session_ids {
+            if known_sessions.insert(session_id.clone()) {
+                target_workspace.session_ids.push(session_id.clone());
+            }
+        }
+
+        if target_order.insert(target_id.clone()) {
+            target.global.workspace_ids.push(target_id);
+        }
+    }
+
+    let mut archived = target
+        .global
+        .archived_session_ids
+        .iter()
+        .cloned()
+        .collect::<HashSet<_>>();
+    for session_id in &legacy.global.archived_session_ids {
+        if archived.insert(session_id.clone()) {
+            target.global.archived_session_ids.push(session_id.clone());
+        }
+    }
+    target.global.initialized |= legacy.global.initialized;
+    Ok(imported)
+}
+
+fn copy_missing_tree(source: &Path, destination: &Path) -> Result<usize, String> {
+    if !source.exists() {
+        return Ok(0);
+    }
+    fs::create_dir_all(destination)
+        .map_err(|error| format!("无法创建会话迁移目录 {}：{error}", destination.display()))?;
+
+    let mut copied = 0;
+    for entry in fs::read_dir(source)
+        .map_err(|error| format!("无法读取旧会话目录 {}：{error}", source.display()))?
+    {
+        let entry = entry.map_err(|error| format!("无法读取旧会话条目：{error}"))?;
+        let source_path = entry.path();
+        let destination_path = destination.join(entry.file_name());
+        let file_type = entry
+            .file_type()
+            .map_err(|error| format!("无法识别旧会话条目 {}：{error}", source_path.display()))?;
+        if file_type.is_dir() {
+            copied += copy_missing_tree(&source_path, &destination_path)?;
+        } else if file_type.is_file() {
+            if !destination_path.exists() {
+                fs::copy(&source_path, &destination_path).map_err(|error| {
+                    format!(
+                        "无法迁移会话文件 {} 到 {}：{error}",
+                        source_path.display(),
+                        destination_path.display()
+                    )
+                })?;
+                copied += 1;
+            }
+        } else {
+            return Err(format!(
+                "旧会话目录包含不支持的链接或特殊文件：{}",
+                source_path.display()
+            ));
+        }
+    }
+    Ok(copied)
+}
+
+fn atomic_sidecar_path(path: &Path, suffix: &str) -> Result<PathBuf, String> {
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| format!("无效的数据文件路径：{}", path.display()))?;
+    Ok(path.with_file_name(format!(".{name}.{suffix}")))
+}
+
+fn recover_interrupted_atomic_write(path: &Path) -> Result<(), String> {
+    let previous = atomic_sidecar_path(path, "dsh-desktop-previous")?;
+    let temporary = atomic_sidecar_path(path, "dsh-desktop-temporary")?;
+    if !path.exists() && previous.is_file() {
+        fs::rename(&previous, path)
+            .map_err(|error| format!("无法恢复迁移前的数据 {}：{error}", path.display()))?;
+    } else if path.exists() && previous.exists() {
+        fs::remove_file(&previous)
+            .map_err(|error| format!("无法清理迁移备份 {}：{error}", previous.display()))?;
+    }
+    if temporary.exists() {
+        fs::remove_file(&temporary)
+            .map_err(|error| format!("无法清理迁移临时文件 {}：{error}", temporary.display()))?;
+    }
+    Ok(())
+}
+
+fn write_json_atomically<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("无法创建数据目录 {}：{error}", parent.display()))?;
+    }
+    recover_interrupted_atomic_write(path)?;
+    let temporary = atomic_sidecar_path(path, "dsh-desktop-temporary")?;
+    let previous = atomic_sidecar_path(path, "dsh-desktop-previous")?;
+    let mut data = serde_json::to_vec_pretty(value)
+        .map_err(|error| format!("无法生成迁移数据 {}：{error}", path.display()))?;
+    data.push(b'\n');
+
+    let mut file = File::create(&temporary)
+        .map_err(|error| format!("无法创建迁移临时文件 {}：{error}", temporary.display()))?;
+    file.write_all(&data)
+        .and_then(|_| file.sync_all())
+        .map_err(|error| format!("无法写入迁移临时文件 {}：{error}", temporary.display()))?;
+
+    let had_previous = path.exists();
+    if had_previous {
+        fs::rename(path, &previous)
+            .map_err(|error| format!("无法暂存现有数据 {}：{error}", path.display()))?;
+    }
+    if let Err(error) = fs::rename(&temporary, path) {
+        if had_previous {
+            let _ = fs::rename(&previous, path);
+        }
+        return Err(format!("无法启用迁移数据 {}：{error}", path.display()));
+    }
+    if previous.exists() {
+        fs::remove_file(&previous)
+            .map_err(|error| format!("无法清理迁移临时备份 {}：{error}", previous.display()))?;
+    }
+    Ok(())
 }
 
 fn ensure_harness_runtime(resource_dir: &Path, data_dir: &Path) -> Result<PathBuf, String> {
@@ -408,10 +746,20 @@ pub fn run() {
         .setup(move |app| {
             #[cfg(target_os = "macos")]
             {
-                use tauri::menu::{MenuBuilder, SubmenuBuilder};
+                use tauri::menu::{AboutMetadataBuilder, MenuBuilder, SubmenuBuilder};
+
+                let about = AboutMetadataBuilder::new()
+                    .name(Some("DSH Desktop"))
+                    .version(Some(app.package_info().version.to_string()))
+                    .copyright(Some("Copyright © 2026 DSH Desktop contributors"))
+                    .credits(Some(format!(
+                        "DeepSeek Harness {HARNESS_VERSION}\n\n无需 Node.js 或命令行的 DeepSeek Harness 桌面客户端\n\n项目主页\nhttps://github.com/xunxingyuan/deepseek-harness-desktop\n\nMIT License"
+                    )))
+                    .icon(app.default_window_icon().cloned())
+                    .build();
 
                 let app_menu = SubmenuBuilder::new(app, "DSH Desktop")
-                    .about(None)
+                    .about_with_text("关于 DSH Desktop", Some(about))
                     .separator()
                     .hide()
                     .hide_others()
@@ -464,11 +812,64 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, path::Path, process::Command};
+    use std::{fs, path::Path, process::Command, time::SystemTime};
 
     use super::{
-        archive_link_stays_inside, ensure_harness_runtime, readiness_url, safe_archive_path,
+        archive_link_stays_inside, ensure_harness_runtime, merge_workspace_storage,
+        migrate_legacy_harness_data, read_workspace_storage, readiness_url, safe_archive_path,
+        StorageUnit, WorkspaceGlobal, WorkspaceRecord, WorkspaceStorage, WorkspaceTables,
+        HARNESS_MIGRATION_VERSION,
     };
+    use serde_json::Map;
+    use std::collections::BTreeMap;
+
+    fn test_workspace_storage(id: &str, path: &str, sessions: &[&str]) -> WorkspaceStorage {
+        let mut workspaces = BTreeMap::new();
+        workspaces.insert(
+            id.to_owned(),
+            WorkspaceRecord {
+                path: path.to_owned(),
+                title: Path::new(path)
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or(path)
+                    .to_owned(),
+                session_ids: sessions
+                    .iter()
+                    .map(|session| (*session).to_owned())
+                    .collect(),
+                created_at: "2026-08-01T00:00:00.000Z".into(),
+                updated_at: "2026-08-02T00:00:00.000Z".into(),
+                extra: Map::new(),
+            },
+        );
+        WorkspaceStorage {
+            unit: StorageUnit {
+                name: "workspace".into(),
+                version: 2,
+                extra: Map::new(),
+            },
+            global: WorkspaceGlobal {
+                initialized: true,
+                workspace_ids: vec![id.to_owned()],
+                archived_session_ids: Vec::new(),
+                extra: Map::new(),
+            },
+            tables: WorkspaceTables {
+                workspaces,
+                extra: Map::new(),
+            },
+            extra: Map::new(),
+        }
+    }
+
+    fn unique_test_dir(name: &str) -> std::path::PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("test clock should be valid")
+            .as_nanos();
+        std::env::temp_dir().join(format!("dsh-desktop-{name}-{}-{nonce}", std::process::id()))
+    }
 
     #[test]
     fn accepts_loopback_readiness_line() {
@@ -497,6 +898,102 @@ mod tests {
             Path::new("node_modules/pkg/link"),
             Path::new("../../../outside")
         ));
+    }
+
+    #[test]
+    fn merges_legacy_sessions_into_an_existing_workspace_path() {
+        let mut target = test_workspace_storage("new-id", "/project", &["new-session"]);
+        let mut legacy =
+            test_workspace_storage("legacy-id", "/project", &["legacy-session", "new-session"]);
+        legacy
+            .global
+            .archived_session_ids
+            .push("legacy-session".into());
+
+        assert_eq!(
+            merge_workspace_storage(&mut target, &legacy).expect("workspace merge should succeed"),
+            0
+        );
+        assert_eq!(target.global.workspace_ids, ["new-id"]);
+        assert_eq!(target.tables.workspaces.len(), 1);
+        assert_eq!(
+            target.tables.workspaces["new-id"].session_ids,
+            ["new-session", "legacy-session"]
+        );
+        assert_eq!(target.global.archived_session_ids, ["legacy-session"]);
+    }
+
+    #[test]
+    fn migrates_legacy_workspaces_and_preserves_current_rc8_data() {
+        let root = unique_test_dir("migration");
+        let legacy_home = root.join("harness");
+        let target_home = legacy_home.join("rc8");
+        let legacy_workspace_path = legacy_home.join("storages/workspace.json");
+        let target_workspace_path = target_home.join("storages/workspace.json");
+        fs::create_dir_all(legacy_workspace_path.parent().unwrap())
+            .expect("legacy storage directory should be created");
+        fs::create_dir_all(target_workspace_path.parent().unwrap())
+            .expect("target storage directory should be created");
+        fs::write(
+            &legacy_workspace_path,
+            serde_json::to_vec_pretty(&test_workspace_storage(
+                "legacy-id",
+                "/legacy-project",
+                &["legacy-session"],
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            &target_workspace_path,
+            serde_json::to_vec_pretty(&test_workspace_storage(
+                "current-id",
+                "/current-project",
+                &["current-session"],
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        let legacy_session =
+            legacy_home.join("sessions/legacy-project/legacy-session/session.jsonl.zstd");
+        fs::create_dir_all(legacy_session.parent().unwrap()).unwrap();
+        fs::write(&legacy_session, b"legacy-session-log").unwrap();
+        let cache_path = target_home.join("storages/session_projcache.json");
+        fs::write(&cache_path, b"current-cache-must-not-be-overwritten").unwrap();
+
+        migrate_legacy_harness_data(&legacy_home, &target_home)
+            .expect("legacy Harness data should migrate");
+
+        let merged = read_workspace_storage(&target_workspace_path).unwrap();
+        assert_eq!(merged.global.workspace_ids, ["current-id", "legacy-id"]);
+        assert_eq!(merged.tables.workspaces.len(), 2);
+        assert_eq!(
+            fs::read(target_home.join("sessions/legacy-project/legacy-session/session.jsonl.zstd"))
+                .unwrap(),
+            b"legacy-session-log"
+        );
+        assert_eq!(
+            fs::read(&cache_path).unwrap(),
+            b"current-cache-must-not-be-overwritten"
+        );
+        assert!(legacy_home
+            .join(format!(
+                "migration-backups/{HARNESS_MIGRATION_VERSION}/workspace.before-migration.json"
+            ))
+            .is_file());
+        assert!(target_home
+            .join(format!(
+                ".dsh-desktop-migration-{HARNESS_MIGRATION_VERSION}.json"
+            ))
+            .is_file());
+
+        // A completed migration is intentionally one-shot. Re-running must not
+        // duplicate project or session records.
+        migrate_legacy_harness_data(&legacy_home, &target_home).unwrap();
+        let repeated = read_workspace_storage(&target_workspace_path).unwrap();
+        assert_eq!(repeated.global.workspace_ids, ["current-id", "legacy-id"]);
+
+        fs::remove_dir_all(root).expect("migration test directory should be removable");
     }
 
     #[test]

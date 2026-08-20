@@ -63,19 +63,26 @@ jobs:
           tagName: v__VERSION__
           releaseName: "DSH Desktop v__VERSION__"
           releaseBody: |
-            Self-contained DSH Desktop installers.
+            更新内容
 
-            - Windows x64: choose the `.exe` installer (or `.msi` for managed deployment).
-            - Apple Silicon Macs: choose the `aarch64` `.dmg`.
-            - Intel Macs: choose the `x64` `.dmg`.
+            - 修复升级到 DeepSeek Harness rc.8 后旧工作区不显示的问题。
+            - 自动合并旧项目记录和历史会话，同时保留现有 rc.8 工作区。
+            - 迁移前自动备份工作区索引，旧数据保持原样，支持安全回退。
+            - 安装包内置 Node.js 和 DeepSeek Harness 0.1.0-rc.8，无需配置开发环境或使用命令行。
 
-            Node.js and DeepSeek Harness 0.1.0-rc.8 are included. End users do not need npm, Node.js, or npx.
+            What's new
 
-            Harness rc.8 uses a fresh local data directory because its SQLite storage format is incompatible with earlier release candidates. Existing data is preserved for rollback.
+            - Fixed legacy workspaces not appearing after upgrading to DeepSeek Harness rc.8.
+            - Merges existing project records and session history without overwriting current rc.8 data.
+            - Backs up the workspace index before migration and keeps the legacy data intact for rollback.
+            - Includes Node.js and DeepSeek Harness 0.1.0-rc.8; no development environment or command line is required.
 
-            DSH Desktop v0.1.5 introduces signed in-app updates. Install v0.1.5 once, and later releases can be downloaded and installed directly from the startup screen.
+            下载 / Downloads
 
-            macOS builds are signed, notarized, and verified by launching the bundled Node.js/V8 runtime before publication.
+            - Windows x64：推荐 `.exe`，集中部署可使用 `.msi`。
+            - Apple Silicon Mac：下载 `aarch64` `.dmg`。
+            - Intel Mac：下载 `x64` `.dmg`。
+            - macOS 安装包经过签名、公证及内置 Node.js/V8 启动验证。
           releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true
@@ -99,19 +106,26 @@ jobs:
           tagName: v__VERSION__
           releaseName: "DSH Desktop v__VERSION__"
           releaseBody: |
-            Self-contained DSH Desktop installers.
+            更新内容
 
-            - Windows x64: choose the `.exe` installer (or `.msi` for managed deployment).
-            - Apple Silicon Macs: choose the `aarch64` `.dmg`.
-            - Intel Macs: choose the `x64` `.dmg`.
+            - 修复升级到 DeepSeek Harness rc.8 后旧工作区不显示的问题。
+            - 自动合并旧项目记录和历史会话，同时保留现有 rc.8 工作区。
+            - 迁移前自动备份工作区索引，旧数据保持原样，支持安全回退。
+            - 安装包内置 Node.js 和 DeepSeek Harness 0.1.0-rc.8，无需配置开发环境或使用命令行。
 
-            Node.js and DeepSeek Harness 0.1.0-rc.8 are included. End users do not need npm, Node.js, or npx.
+            What's new
 
-            Harness rc.8 uses a fresh local data directory because its SQLite storage format is incompatible with earlier release candidates. Existing data is preserved for rollback.
+            - Fixed legacy workspaces not appearing after upgrading to DeepSeek Harness rc.8.
+            - Merges existing project records and session history without overwriting current rc.8 data.
+            - Backs up the workspace index before migration and keeps the legacy data intact for rollback.
+            - Includes Node.js and DeepSeek Harness 0.1.0-rc.8; no development environment or command line is required.
 
-            DSH Desktop v0.1.5 introduces signed in-app updates. Install v0.1.5 once, and later releases can be downloaded and installed directly from the startup screen.
+            下载 / Downloads
 
-            macOS builds are signed, notarized, and verified by launching the bundled Node.js/V8 runtime before publication.
+            - Windows x64：推荐 `.exe`，集中部署可使用 `.msi`。
+            - Apple Silicon Mac：下载 `aarch64` `.dmg`。
+            - Intel Mac：下载 `x64` `.dmg`。
+            - macOS 安装包经过签名、公证及内置 Node.js/V8 启动验证。
           releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true
