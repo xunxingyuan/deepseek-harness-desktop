@@ -67,7 +67,9 @@ jobs:
             - Apple Silicon Macs: choose the `aarch64` `.dmg`.
             - Intel Macs: choose the `x64` `.dmg`.
 
-            Node.js and DeepSeek Harness are included. End users do not need npm, Node.js, or npx.
+            Node.js and DeepSeek Harness 0.1.0-rc.8 are included. End users do not need npm, Node.js, or npx.
+
+            Harness rc.8 uses a fresh local data directory because its SQLite storage format is incompatible with earlier release candidates. Existing data is preserved for rollback.
 
             macOS builds are signed, notarized, and verified by launching the bundled Node.js/V8 runtime before publication.
           releaseDraft: true
@@ -95,7 +97,9 @@ jobs:
             - Apple Silicon Macs: choose the `aarch64` `.dmg`.
             - Intel Macs: choose the `x64` `.dmg`.
 
-            Node.js and DeepSeek Harness are included. End users do not need npm, Node.js, or npx.
+            Node.js and DeepSeek Harness 0.1.0-rc.8 are included. End users do not need npm, Node.js, or npx.
+
+            Harness rc.8 uses a fresh local data directory because its SQLite storage format is incompatible with earlier release candidates. Existing data is preserved for rollback.
 
             macOS builds are signed, notarized, and verified by launching the bundled Node.js/V8 runtime before publication.
           releaseDraft: true

@@ -14,14 +14,14 @@ install Node.js or run `npx @deepseek-ai/dsh web`.
 
 ## Download
 
-**Current release: [DSH Desktop v0.1.3](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.3)**
+**Current release: [DSH Desktop v0.1.4](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.4)**
 
 | Platform | Recommended download |
 | --- | --- |
-| Windows x64 | [EXE installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.3/DSH.Desktop_0.1.3_x64-setup.exe) |
-| Windows x64 (managed deployment) | [MSI installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.3/DSH.Desktop_0.1.3_x64_zh-CN.msi) |
-| Apple Silicon Mac | [DMG installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.3/DSH.Desktop_0.1.3_aarch64.dmg) |
-| Intel Mac | [DMG installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.3/DSH.Desktop_0.1.3_x64.dmg) |
+| Windows x64 | [EXE installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.4/DSH.Desktop_0.1.4_x64-setup.exe) |
+| Windows x64 (managed deployment) | [MSI installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.4/DSH.Desktop_0.1.4_x64_zh-CN.msi) |
+| Apple Silicon Mac | [DMG installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.4/DSH.Desktop_0.1.4_aarch64.dmg) |
+| Intel Mac | [DMG installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.4/DSH.Desktop_0.1.4_x64.dmg) |
 
 You can always find the newest version on the
 [Latest Release](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/latest)
@@ -40,10 +40,14 @@ Versions are deliberately pinned for reproducible releases:
 
 | Component | Version |
 | --- | --- |
-| DeepSeek Harness | `0.1.0-rc.6` |
+| DeepSeek Harness | `0.1.0-rc.8` |
 | Node.js | `24.19.0` (Krypton LTS) |
 | Tauri JavaScript API | `2.11.1` |
 | Tauri CLI | `2.11.4` |
+
+> Harness rc.8 uses an incompatible SQLite storage format. DSH Desktop v0.1.4
+> starts it in a new data directory and keeps older local data untouched for
+> rollback. Existing users may need to configure their model provider again.
 
 The runtime preparation step downloads Node.js directly from `nodejs.org`,
 verifies its official SHA-256 checksum, and deploys the locked Harness npm
@@ -82,8 +86,8 @@ committed.
 3. Commit and push a matching tag, for example:
 
 ```bash
-git tag v0.1.3
-git push origin v0.1.3
+git tag v0.1.4
+git push origin v0.1.4
 ```
 
 The release workflow builds these targets on native GitHub-hosted runners:

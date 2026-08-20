@@ -71,7 +71,7 @@ function navigateToHarness(url: string): void {
       phase: 'failed',
       message: '后台返回了不安全的地址，桌面壳已阻止跳转。',
       url: null,
-      harnessVersion: '0.1.0-rc.6',
+      harnessVersion: '0.1.0-rc.8',
     })
     return
   }
@@ -93,7 +93,7 @@ async function restart(): Promise<void> {
     phase: 'starting',
     message: '正在重新启动内置 Harness…',
     url: null,
-    harnessVersion: '0.1.0-rc.6',
+    harnessVersion: '0.1.0-rc.8',
   })
   try {
     applyStatus(await invoke<BackendStatus>('restart_backend'))
@@ -102,7 +102,7 @@ async function restart(): Promise<void> {
       phase: 'failed',
       message: String(error),
       url: null,
-      harnessVersion: '0.1.0-rc.6',
+      harnessVersion: '0.1.0-rc.8',
     })
   } finally {
     retrying = false
@@ -114,7 +114,7 @@ async function bootstrap(): Promise<void> {
     phase: 'starting',
     message: '正在启动内置 Node.js 与 DeepSeek Harness…',
     url: null,
-    harnessVersion: '0.1.0-rc.6',
+    harnessVersion: '0.1.0-rc.8',
   })
 
   await listen<BackendStatus>('backend-status', (event) => {
@@ -128,7 +128,7 @@ async function bootstrap(): Promise<void> {
       phase: 'failed',
       message: String(error),
       url: null,
-      harnessVersion: '0.1.0-rc.6',
+      harnessVersion: '0.1.0-rc.8',
     })
   }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "deepseek-harness-desktop"
-version = "0.1.3"
+version = "0.1.4"
 description = "A self-contained Tauri desktop distribution of DeepSeek Harness"
 authors = ["DSH Desktop contributors"]
 license = "MIT"

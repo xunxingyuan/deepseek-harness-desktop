@@ -14,7 +14,8 @@ use tauri_plugin_shell::{
 };
 use url::Url;
 
-const HARNESS_VERSION: &str = "0.1.0-rc.6";
+const HARNESS_VERSION: &str = "0.1.0-rc.8";
+const HARNESS_DATA_SCHEMA: &str = "rc8";
 const MAX_DIAGNOSTIC_LINES: usize = 12;
 
 #[derive(Clone, Debug, Serialize)]
@@ -118,7 +119,10 @@ impl BackendManager {
         emit_status(&app, BackendStatus::starting());
         let entry = ensure_harness_runtime(&resource_dir, &data_dir)?;
 
-        let dsh_home = data_dir.join("harness");
+        // rc.8 introduced an incompatible SQLite storage layout. Keep the
+        // previous Harness home intact so upgrades start safely and rollback
+        // remains possible.
+        let dsh_home = data_dir.join("harness").join(HARNESS_DATA_SCHEMA);
         let agents_home = data_dir.join("agents");
         fs::create_dir_all(&dsh_home)
             .and_then(|_| fs::create_dir_all(&agents_home))
@@ -131,6 +135,7 @@ impl BackendManager {
             .args([
                 entry.to_string_lossy().into_owned(),
                 "web".into(),
+                "--no-open".into(),
                 "--host".into(),
                 "127.0.0.1".into(),
                 "--port".into(),
@@ -522,7 +527,7 @@ mod tests {
         assert!(version.status.success());
         assert_eq!(
             String::from_utf8_lossy(&version.stdout).trim(),
-            "0.1.0-rc.6"
+            "0.1.0-rc.8"
         );
         fs::remove_dir_all(&data_dir).expect("temporary runtime should be removable");
     }
