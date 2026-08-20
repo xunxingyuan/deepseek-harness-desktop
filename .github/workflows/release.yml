@@ -23,11 +23,11 @@ jobs:
           - name: macOS Apple Silicon
             platform: macos-26
             target: aarch64-apple-darwin
-            bundles: dmg
+            bundles: app,dmg
           - name: macOS Intel
             platform: macos-26-intel
             target: x86_64-apple-darwin
-            bundles: dmg
+            bundles: app,dmg
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
     steps:
@@ -54,9 +54,11 @@ jobs:
         run: pnpm runtime:prepare -- --target ${{ matrix.target }}
       - name: Build unsigned installers and attach to GitHub Release
         if: ${{ vars.ENABLE_APPLE_SIGNING != 'true' }}
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
           releaseName: "DSH Desktop v__VERSION__"
@@ -71,16 +73,22 @@ jobs:
 
             Harness rc.8 uses a fresh local data directory because its SQLite storage format is incompatible with earlier release candidates. Existing data is preserved for rollback.
 
+            DSH Desktop v0.1.5 introduces signed in-app updates. Install v0.1.5 once, and later releases can be downloaded and installed directly from the startup screen.
+
             macOS builds are signed, notarized, and verified by launching the bundled Node.js/V8 runtime before publication.
           releaseDraft: true
           prerelease: false
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
       - name: Build signed installers and attach to GitHub Release
         if: ${{ vars.ENABLE_APPLE_SIGNING == 'true' }}
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -101,9 +109,13 @@ jobs:
 
             Harness rc.8 uses a fresh local data directory because its SQLite storage format is incompatible with earlier release candidates. Existing data is preserved for rollback.
 
+            DSH Desktop v0.1.5 introduces signed in-app updates. Install v0.1.5 once, and later releases can be downloaded and installed directly from the startup screen.
+
             macOS builds are signed, notarized, and verified by launching the bundled Node.js/V8 runtime before publication.
           releaseDraft: true
           prerelease: false
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
       - name: Verify signed macOS Node runtime in final DMG
@@ -156,4 +168,18 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=$(jq -r '.version' package.json)
+          mkdir -p "$RUNNER_TEMP/dsh-update-manifest"
+          gh release download "v${VERSION}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pattern latest.json \
+            --dir "$RUNNER_TEMP/dsh-update-manifest"
+          jq -e --arg version "$VERSION" '
+            .version == $version and
+            (.platforms["windows-x86_64"].url | type == "string") and
+            (.platforms["windows-x86_64"].signature | type == "string") and
+            (.platforms["darwin-aarch64"].url | type == "string") and
+            (.platforms["darwin-aarch64"].signature | type == "string") and
+            (.platforms["darwin-x86_64"].url | type == "string") and
+            (.platforms["darwin-x86_64"].signature | type == "string")
+          ' "$RUNNER_TEMP/dsh-update-manifest/latest.json"
           gh release edit "v${VERSION}" --draft=false --repo "${GITHUB_REPOSITORY}"

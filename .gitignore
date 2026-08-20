@@ -9,6 +9,7 @@ src-tauri/gen/
 .DS_Store
 
 # Signing material must never be committed.
+.secrets/
 *.p12
 *.pfx
 *.cer

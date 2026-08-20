@@ -91,6 +91,8 @@ h1 { margin: 0; font-size: 22px; letter-spacing: -.025em; }
 .status-block h2 { margin: 0 0 7px; font-size: 15px; }
 .status-block p { margin: 0; color: #94a3b8; font-size: 13px; line-height: 1.55; }
 
+.status-block--failed { margin-bottom: 20px; }
+
 .spinner {
   flex: 0 0 auto;
   width: 28px;
@@ -134,6 +136,100 @@ button {
 }
 
 button:hover { filter: brightness(1.08); }
+button:disabled { cursor: wait; filter: none; opacity: .62; }
+
+.update-block { margin: 30px 0 24px; }
+
+.update-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.update-title h2 { margin: 0; font-size: 18px; }
+
+.update-badge {
+  padding: 4px 7px;
+  border-radius: 6px;
+  color: #75d6ff;
+  background: rgba(56, 189, 248, .12);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.update-summary {
+  margin: 10px 0 16px;
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.release-notes {
+  max-height: 150px;
+  overflow: auto;
+  padding: 15px;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 11px;
+  color: #c2cee0;
+  background: rgba(255,255,255,.03);
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.progress { margin-top: 17px; }
+
+.progress-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+}
+
+.progress-track span {
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #3478f6, #32c6ed);
+  transition: width .2s ease;
+}
+
+.progress-bar--indeterminate {
+  width: 38% !important;
+  animation: progress-slide 1.2s ease-in-out infinite;
+}
+
+.progress p {
+  margin: 8px 0 0;
+  color: #7f91aa;
+  font-size: 11px;
+}
+
+.update-error {
+  margin: 15px 0 0;
+  padding: 11px 13px;
+  border-radius: 9px;
+  color: #ffaaaa;
+  background: rgba(255, 96, 96, .09);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.update-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 10px;
+  margin-top: 19px;
+}
+
+.button-secondary {
+  border: 1px solid rgba(255,255,255,.1);
+  color: #aebbd0;
+  background: rgba(255,255,255,.045);
+  box-shadow: none;
+}
 
 footer {
   display: flex;
@@ -147,9 +243,14 @@ footer {
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes progress-slide {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(270%); }
+}
 
 @media (max-width: 540px) {
   .shell { padding: 16px; }
   .card { padding: 22px; }
+  .update-actions { grid-template-columns: 1fr; }
   footer { flex-direction: column; gap: 6px; }
 }
