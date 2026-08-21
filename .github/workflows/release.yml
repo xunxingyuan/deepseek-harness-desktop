@@ -65,17 +65,17 @@ jobs:
           releaseBody: |
             更新内容
 
-            - 修复升级到 DeepSeek Harness rc.8 后旧工作区不显示的问题。
-            - 自动合并旧项目记录和历史会话，同时保留现有 rc.8 工作区。
-            - 迁移前自动备份工作区索引，旧数据保持原样，支持安全回退。
-            - 安装包内置 Node.js 和 DeepSeek Harness 0.1.0-rc.8，无需配置开发环境或使用命令行。
+            - 内置 DeepSeek Harness 0.1.1-rc.1，跟进官方新版能力与修复。
+            - 优化 macOS“关于 DSH Desktop”信息布局，并增加项目主页菜单入口。
+            - 延续现有 rc.8 工作区数据目录，升级后项目与历史会话保持可见。
+            - 安装包内置 Node.js，无需配置开发环境或使用命令行。
 
             What's new
 
-            - Fixed legacy workspaces not appearing after upgrading to DeepSeek Harness rc.8.
-            - Merges existing project records and session history without overwriting current rc.8 data.
-            - Backs up the workspace index before migration and keeps the legacy data intact for rollback.
-            - Includes Node.js and DeepSeek Harness 0.1.0-rc.8; no development environment or command line is required.
+            - Bundles DeepSeek Harness 0.1.1-rc.1 with the latest upstream capabilities and fixes.
+            - Improves the macOS About panel and adds a Project Homepage menu item.
+            - Reuses the existing rc.8 data directory so projects and session history remain visible after upgrading.
+            - Includes Node.js; no development environment or command line is required.
 
             下载 / Downloads
 
@@ -108,17 +108,17 @@ jobs:
           releaseBody: |
             更新内容
 
-            - 修复升级到 DeepSeek Harness rc.8 后旧工作区不显示的问题。
-            - 自动合并旧项目记录和历史会话，同时保留现有 rc.8 工作区。
-            - 迁移前自动备份工作区索引，旧数据保持原样，支持安全回退。
-            - 安装包内置 Node.js 和 DeepSeek Harness 0.1.0-rc.8，无需配置开发环境或使用命令行。
+            - 内置 DeepSeek Harness 0.1.1-rc.1，跟进官方新版能力与修复。
+            - 优化 macOS“关于 DSH Desktop”信息布局，并增加项目主页菜单入口。
+            - 延续现有 rc.8 工作区数据目录，升级后项目与历史会话保持可见。
+            - 安装包内置 Node.js，无需配置开发环境或使用命令行。
 
             What's new
 
-            - Fixed legacy workspaces not appearing after upgrading to DeepSeek Harness rc.8.
-            - Merges existing project records and session history without overwriting current rc.8 data.
-            - Backs up the workspace index before migration and keeps the legacy data intact for rollback.
-            - Includes Node.js and DeepSeek Harness 0.1.0-rc.8; no development environment or command line is required.
+            - Bundles DeepSeek Harness 0.1.1-rc.1 with the latest upstream capabilities and fixes.
+            - Improves the macOS About panel and adds a Project Homepage menu item.
+            - Reuses the existing rc.8 data directory so projects and session history remain visible after upgrading.
+            - Includes Node.js; no development environment or command line is required.
 
             下载 / Downloads
 

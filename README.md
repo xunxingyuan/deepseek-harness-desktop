@@ -16,6 +16,9 @@ install Node.js or run `npx @deepseek-ai/dsh web`.
 
 **Current release: [DSH Desktop v0.1.6](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.6)**
 
+> The `main` branch is preparing v0.1.7. The bundled-component versions below
+> describe the upcoming source release.
+
 | Platform | Recommended download |
 | --- | --- |
 | Windows x64 | [EXE installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.6/DSH.Desktop_0.1.6_x64-setup.exe) |
@@ -45,7 +48,7 @@ Versions are deliberately pinned for reproducible releases:
 
 | Component | Version |
 | --- | --- |
-| DeepSeek Harness | `0.1.0-rc.8` |
+| DeepSeek Harness | `0.1.1-rc.1` |
 | Node.js | `24.19.0` (Krypton LTS) |
 | Tauri JavaScript API | `2.11.1` |
 | Tauri CLI | `2.11.4` |
@@ -55,7 +58,9 @@ Versions are deliberately pinned for reproducible releases:
 > rollback. Starting with v0.1.6, DSH Desktop automatically imports legacy
 > workspace records and session history into rc.8 without overwriting current
 > rc.8 data. It backs up the current workspace index before migration and keeps
-> the original legacy data intact.
+> the original legacy data intact. Harness 0.1.1-rc.1 keeps the same storage
+> schema, so upgrades continue using the existing directory instead of
+> isolating workspaces again.
 
 The runtime preparation step downloads Node.js directly from `nodejs.org`,
 verifies its official SHA-256 checksum, and deploys the locked Harness npm

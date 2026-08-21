@@ -16,6 +16,8 @@ Harness 及其 Web UI 均已内置，无需安装 Node.js，也不需要手动�
 
 **当前版本：[DSH Desktop v0.1.6](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.6)**
 
+> 当前 `main` 分支正在准备 v0.1.7；下方“安装包包含的组件”描述的是下一版源码。
+
 | 平台 | 推荐下载 |
 | --- | --- |
 | Windows x64 | [EXE 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.6/DSH.Desktop_0.1.6_x64-setup.exe) |
@@ -41,7 +43,7 @@ DSH Desktop 启动后会在随机的 `127.0.0.1` 本地端口运行 Harness 服�
 
 | 组件 | 版本 |
 | --- | --- |
-| DeepSeek Harness | `0.1.0-rc.8` |
+| DeepSeek Harness | `0.1.1-rc.1` |
 | Node.js | `24.19.0`（Krypton LTS） |
 | Tauri JavaScript API | `2.11.1` |
 | Tauri CLI | `2.11.4` |
@@ -49,7 +51,8 @@ DSH Desktop 启动后会在随机的 `127.0.0.1` 本地端口运行 Harness 服�
 > Harness rc.8 使用了不兼容的 SQLite 存储格式。DSH Desktop v0.1.4 会使用新的
 > 数据目录启动，同时保留旧版本本地数据以便回退。v0.1.6 起，应用会自动把旧工作区
 > 记录和历史会话导入 rc.8，并保留当前已有的 rc.8 数据；迁移前会备份工作区索引，
-> 原始旧数据也不会删除。
+> 原始旧数据也不会删除。Harness 0.1.1-rc.1 延续相同的数据格式，因此升级时继续
+> 使用现有目录，不会再次隔离工作区。
 
 运行时准备脚本会直接从 `nodejs.org` 下载 Node.js，使用官方 SHA-256
 校验和验证文件，并按照构建机器的原生目标平台部署由锁文件固定的 Harness npm

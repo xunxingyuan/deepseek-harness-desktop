@@ -17,7 +17,11 @@ use tauri_plugin_shell::{
 };
 use url::Url;
 
-const HARNESS_VERSION: &str = "0.1.0-rc.8";
+const HARNESS_VERSION: &str = "0.1.1-rc.1";
+const PROJECT_HOMEPAGE: &str = "https://github.com/xunxingyuan/deepseek-harness-desktop";
+const PROJECT_HOMEPAGE_MENU_ID: &str = "open-project-homepage";
+// rc.8 and 0.1.1-rc.1 use the same workspace v2 and projection-cache v3 schemas.
+// Keep this directory stable so upgrading does not hide existing projects.
 const HARNESS_DATA_SCHEMA: &str = "rc8";
 const HARNESS_MIGRATION_VERSION: &str = "workspace-v1";
 const MAX_DIAGNOSTIC_LINES: usize = 12;
@@ -741,6 +745,14 @@ pub fn run() {
                 let _ = window.set_focus();
             }
         }))
+        .on_menu_event(|app, event| {
+            if event.id() == PROJECT_HOMEPAGE_MENU_ID {
+                #[allow(deprecated)]
+                if let Err(error) = app.shell().open(PROJECT_HOMEPAGE, None) {
+                    log::warn!("failed to open project homepage: {error}");
+                }
+            }
+        })
         .manage(manager.clone())
         .invoke_handler(tauri::generate_handler![backend_status, restart_backend])
         .setup(move |app| {
@@ -750,16 +762,18 @@ pub fn run() {
 
                 let about = AboutMetadataBuilder::new()
                     .name(Some("DSH Desktop"))
-                    .version(Some(app.package_info().version.to_string()))
+                    .short_version(Some(app.package_info().version.to_string()))
+                    .version(Some(format!("Harness {HARNESS_VERSION}")))
                     .copyright(Some("Copyright © 2026 DSH Desktop contributors"))
-                    .credits(Some(format!(
-                        "DeepSeek Harness {HARNESS_VERSION}\n\n无需 Node.js 或命令行的 DeepSeek Harness 桌面客户端\n\n项目主页\nhttps://github.com/xunxingyuan/deepseek-harness-desktop\n\nMIT License"
-                    )))
+                    .credits(Some(
+                        "非官方 DeepSeek Harness 桌面客户端\n\n内置 Node.js · 无需命令行\n开源项目 · MIT License",
+                    ))
                     .icon(app.default_window_icon().cloned())
                     .build();
 
                 let app_menu = SubmenuBuilder::new(app, "DSH Desktop")
                     .about_with_text("关于 DSH Desktop", Some(about))
+                    .text(PROJECT_HOMEPAGE_MENU_ID, "项目主页…")
                     .separator()
                     .hide()
                     .hide_others()
@@ -1026,7 +1040,7 @@ mod tests {
         assert!(version.status.success());
         assert_eq!(
             String::from_utf8_lossy(&version.stdout).trim(),
-            "0.1.0-rc.8"
+            "0.1.1-rc.1"
         );
         fs::remove_dir_all(&data_dir).expect("temporary runtime should be removable");
     }

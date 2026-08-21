@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { check, type Update } from '@tauri-apps/plugin-updater'
+import packageInfo from '../package.json'
 import {
   emptyDownloadProgress,
   formatBytes,
@@ -19,8 +20,8 @@ export interface BackendStatus {
   harnessVersion: string
 }
 
-const APP_VERSION = '0.1.5'
-const HARNESS_VERSION = '0.1.0-rc.8'
+const APP_VERSION = packageInfo.version
+const HARNESS_VERSION = '0.1.1-rc.1'
 const UPDATE_CHECK_TIMEOUT_MS = 5_000
 
 const root = document.querySelector<HTMLElement>('#app')
