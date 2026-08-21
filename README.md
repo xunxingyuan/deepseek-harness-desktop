@@ -14,14 +14,14 @@ install Node.js or run `npx @deepseek-ai/dsh web`.
 
 ## Download
 
-**Current release: [DSH Desktop v0.1.5](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.5)**
+**Current release: [DSH Desktop v0.1.6](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.6)**
 
 | Platform | Recommended download |
 | --- | --- |
-| Windows x64 | [EXE installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.5/DSH.Desktop_0.1.5_x64-setup.exe) |
-| Windows x64 (managed deployment) | [MSI installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.5/DSH.Desktop_0.1.5_x64_zh-CN.msi) |
-| Apple Silicon Mac | [DMG installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.5/DSH.Desktop_0.1.5_aarch64.dmg) |
-| Intel Mac | [DMG installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.5/DSH.Desktop_0.1.5_x64.dmg) |
+| Windows x64 | [EXE installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.6/DSH.Desktop_0.1.6_x64-setup.exe) |
+| Windows x64 (managed deployment) | [MSI installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.6/DSH.Desktop_0.1.6_x64_zh-CN.msi) |
+| Apple Silicon Mac | [DMG installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.6/DSH.Desktop_0.1.6_aarch64.dmg) |
+| Intel Mac | [DMG installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.6/DSH.Desktop_0.1.6_x64.dmg) |
 
 You can always find the newest version on the
 [Latest Release](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/latest)
@@ -52,7 +52,10 @@ Versions are deliberately pinned for reproducible releases:
 
 > Harness rc.8 uses an incompatible SQLite storage format. DSH Desktop v0.1.4
 > starts it in a new data directory and keeps older local data untouched for
-> rollback. Existing users may need to configure their model provider again.
+> rollback. Starting with v0.1.6, DSH Desktop automatically imports legacy
+> workspace records and session history into rc.8 without overwriting current
+> rc.8 data. It backs up the current workspace index before migration and keeps
+> the original legacy data intact.
 
 The runtime preparation step downloads Node.js directly from `nodejs.org`,
 verifies its official SHA-256 checksum, and deploys the locked Harness npm
@@ -91,8 +94,8 @@ committed.
 3. Commit and push a matching tag, for example:
 
 ```bash
-git tag v0.1.5
-git push origin v0.1.5
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
 
 The release workflow builds these targets on native GitHub-hosted runners:
