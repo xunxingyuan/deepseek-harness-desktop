@@ -14,17 +14,14 @@ install Node.js or run `npx @deepseek-ai/dsh web`.
 
 ## Download
 
-**Current release: [DSH Desktop v0.1.7](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.7)**
-
-> The `main` branch is preparing v0.1.10 with a fix for alpha.3 browser-auth
-> cookies in the embedded macOS WebView.
+**Current release: [DSH Desktop v0.1.10](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.10)**
 
 | Platform | Recommended download |
 | --- | --- |
-| Windows x64 | [EXE installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.7/DSH.Desktop_0.1.7_x64-setup.exe) |
-| Windows x64 (managed deployment) | [MSI installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.7/DSH.Desktop_0.1.7_x64_zh-CN.msi) |
-| Apple Silicon Mac | [DMG installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.7/DSH.Desktop_0.1.7_aarch64.dmg) |
-| Intel Mac | [DMG installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.7/DSH.Desktop_0.1.7_x64.dmg) |
+| Windows x64 | [EXE installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.10/DSH.Desktop_0.1.10_x64-setup.exe) |
+| Windows x64 (managed deployment) | [MSI installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.10/DSH.Desktop_0.1.10_x64_zh-CN.msi) |
+| Apple Silicon Mac | [DMG installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.10/DSH.Desktop_0.1.10_aarch64.dmg) |
+| Intel Mac | [DMG installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.10/DSH.Desktop_0.1.10_x64.dmg) |
 
 You can always find the newest version on the
 [Latest Release](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/latest)
