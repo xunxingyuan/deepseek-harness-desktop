@@ -16,6 +16,9 @@ install Node.js or run `npx @deepseek-ai/dsh web`.
 
 **Current release: [DSH Desktop v0.1.7](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.7)**
 
+> The `main` branch is preparing v0.1.8. The bundled-component versions below
+> describe the upcoming source release.
+
 | Platform | Recommended download |
 | --- | --- |
 | Windows x64 | [EXE installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.7/DSH.Desktop_0.1.7_x64-setup.exe) |
@@ -37,7 +40,9 @@ page.
 
 DSH Desktop starts a private Harness server on a random `127.0.0.1` port, waits for
 its official readiness signal, and opens the built-in Web UI. Closing the app
-also stops the Harness process.
+also stops the Harness process. The desktop runtime uses startup-only profile
+loading and does not enable development file-watcher hot reload, reducing
+background resource usage.
 
 ## What gets bundled
 
@@ -45,7 +50,7 @@ Versions are deliberately pinned for reproducible releases:
 
 | Component | Version |
 | --- | --- |
-| DeepSeek Harness | `0.1.1-rc.1` |
+| DeepSeek Harness | `0.1.2-alpha.3` |
 | Node.js | `24.19.0` (Krypton LTS) |
 | Tauri JavaScript API | `2.11.1` |
 | Tauri CLI | `2.11.4` |
@@ -55,9 +60,12 @@ Versions are deliberately pinned for reproducible releases:
 > rollback. Starting with v0.1.6, DSH Desktop automatically imports legacy
 > workspace records and session history into rc.8 without overwriting current
 > rc.8 data. It backs up the current workspace index before migration and keeps
-> the original legacy data intact. Harness 0.1.1-rc.1 keeps the same storage
-> schema, so upgrades continue using the existing directory instead of
-> isolating workspaces again.
+> the original legacy data intact. Harness 0.1.2-alpha.3 keeps the workspace v2
+> schema, so upgrades continue using the existing directory instead of isolating
+> workspaces again. The non-authoritative session projection cache is rebuilt in
+> its new layout. Upstream removed the optional SQLite Session persistence
+> backend; export SQLite sessions with the older version before upgrading if you
+> explicitly enabled it. DSH Desktop's default JSON persistence is unaffected.
 
 The runtime preparation step downloads Node.js directly from `nodejs.org`,
 verifies its official SHA-256 checksum, and deploys the locked Harness npm

@@ -17,11 +17,15 @@ use tauri_plugin_shell::{
 };
 use url::Url;
 
-const HARNESS_VERSION: &str = "0.1.1-rc.1";
+const HARNESS_VERSION: &str = "0.1.2-alpha.3";
 const PROJECT_HOMEPAGE: &str = "https://github.com/xunxingyuan/deepseek-harness-desktop";
 const PROJECT_HOMEPAGE_MENU_ID: &str = "open-project-homepage";
-// rc.8 and 0.1.1-rc.1 use the same workspace v2 and projection-cache v3 schemas.
-// Keep this directory stable so upgrading does not hide existing projects.
+const DESKTOP_PROFILE_NAME: &str = "web";
+const DESKTOP_PROFILE_RELOAD: &str = "startup";
+const DESKTOP_PROFILE_BUNDLES: [&str; 2] = ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"];
+// The alpha.3 workspace domain remains v2, so keep this directory stable when
+// upgrading. Its projection cache is v4/per-record and is safely rebuilt as a
+// non-authoritative cache without moving or deleting workspace data.
 const HARNESS_DATA_SCHEMA: &str = "rc8";
 const HARNESS_MIGRATION_VERSION: &str = "workspace-v1";
 const MAX_DIAGNOSTIC_LINES: usize = 12;
@@ -192,6 +196,7 @@ impl BackendManager {
         fs::create_dir_all(&dsh_home)
             .and_then(|_| fs::create_dir_all(&agents_home))
             .map_err(|error| format!("无法准备 Harness 数据目录：{error}"))?;
+        prepare_desktop_profile(&dsh_home)?;
         migrate_legacy_harness_data(&legacy_dsh_home, &dsh_home)?;
 
         let command = app
@@ -363,6 +368,52 @@ fn migrate_legacy_harness_data(legacy_home: &Path, target_home: &Path) -> Result
         "Harness data migration completed: {imported_workspaces} workspaces, {imported_sessions} session files"
     );
     Ok(())
+}
+
+fn prepare_desktop_profile(dsh_home: &Path) -> Result<(), String> {
+    let profile_dir = dsh_home.join("profiles").join(DESKTOP_PROFILE_NAME);
+    fs::create_dir_all(&profile_dir)
+        .map_err(|error| format!("无法创建 Harness profile 目录：{error}"))?;
+    let manifest_path = profile_dir.join("package.json");
+    let mut manifest = if manifest_path.is_file() {
+        let data = fs::read(&manifest_path)
+            .map_err(|error| format!("无法读取 Harness profile 配置：{error}"))?;
+        serde_json::from_slice::<Value>(&data)
+            .map_err(|error| format!("无法解析 Harness profile 配置：{error}"))?
+    } else {
+        Value::Object(Map::new())
+    };
+
+    let root = manifest
+        .as_object_mut()
+        .ok_or_else(|| "Harness profile 配置必须是 JSON 对象".to_owned())?;
+    let dsh = root
+        .entry("dsh")
+        .or_insert_with(|| Value::Object(Map::new()))
+        .as_object_mut()
+        .ok_or_else(|| "Harness profile 的 dsh 字段必须是 JSON 对象".to_owned())?;
+    let profile = dsh
+        .entry("profile")
+        .or_insert_with(|| Value::Object(Map::new()))
+        .as_object_mut()
+        .ok_or_else(|| "Harness profile 的 profile 字段必须是 JSON 对象".to_owned())?;
+
+    if !profile.contains_key("bundles") {
+        profile.insert(
+            "bundles".into(),
+            Value::Array(
+                DESKTOP_PROFILE_BUNDLES
+                    .iter()
+                    .map(|bundle| Value::String((*bundle).to_owned()))
+                    .collect(),
+            ),
+        );
+    }
+    profile.insert(
+        "patchReload".into(),
+        Value::String(DESKTOP_PROFILE_RELOAD.to_owned()),
+    );
+    write_json_atomically(&manifest_path, &manifest)
 }
 
 fn read_workspace_storage(path: &Path) -> Result<WorkspaceStorage, String> {
@@ -830,11 +881,12 @@ mod tests {
 
     use super::{
         archive_link_stays_inside, ensure_harness_runtime, merge_workspace_storage,
-        migrate_legacy_harness_data, read_workspace_storage, readiness_url, safe_archive_path,
-        StorageUnit, WorkspaceGlobal, WorkspaceRecord, WorkspaceStorage, WorkspaceTables,
+        migrate_legacy_harness_data, prepare_desktop_profile, read_workspace_storage,
+        readiness_url, safe_archive_path, StorageUnit, WorkspaceGlobal, WorkspaceRecord,
+        WorkspaceStorage, WorkspaceTables, DESKTOP_PROFILE_BUNDLES, DESKTOP_PROFILE_RELOAD,
         HARNESS_MIGRATION_VERSION,
     };
-    use serde_json::Map;
+    use serde_json::{Map, Value};
     use std::collections::BTreeMap;
 
     fn test_workspace_storage(id: &str, path: &str, sessions: &[&str]) -> WorkspaceStorage {
@@ -891,6 +943,49 @@ mod tests {
             readiness_url("dsh web: http://127.0.0.1:49152"),
             Some("http://127.0.0.1:49152/".into())
         );
+    }
+
+    #[test]
+    fn prepares_desktop_profile_without_overwriting_bundles() {
+        let home = unique_test_dir("profile");
+        prepare_desktop_profile(&home).expect("desktop profile should be created");
+        let manifest_path = home.join("profiles").join("web").join("package.json");
+        let manifest: Value = serde_json::from_slice(
+            &fs::read(&manifest_path).expect("desktop profile manifest should exist"),
+        )
+        .expect("desktop profile manifest should be valid JSON");
+        assert_eq!(
+            manifest["dsh"]["profile"]["patchReload"],
+            DESKTOP_PROFILE_RELOAD
+        );
+        assert_eq!(
+            manifest["dsh"]["profile"]["bundles"],
+            serde_json::json!(DESKTOP_PROFILE_BUNDLES)
+        );
+
+        let custom = serde_json::json!({
+            "name": "custom-web",
+            "dsh": {"profile": {"bundles": ["custom-bundle"], "patchReload": "live"}}
+        });
+        fs::write(
+            &manifest_path,
+            serde_json::to_vec(&custom).expect("custom profile should serialize"),
+        )
+        .expect("custom profile should be writable");
+        prepare_desktop_profile(&home).expect("existing desktop profile should be updated");
+        let updated: Value = serde_json::from_slice(
+            &fs::read(&manifest_path).expect("updated profile manifest should exist"),
+        )
+        .expect("updated profile manifest should be valid JSON");
+        assert_eq!(
+            updated["dsh"]["profile"]["patchReload"],
+            DESKTOP_PROFILE_RELOAD
+        );
+        assert_eq!(
+            updated["dsh"]["profile"]["bundles"],
+            serde_json::json!(["custom-bundle"])
+        );
+        fs::remove_dir_all(&home).expect("temporary profile home should be removable");
     }
 
     #[test]
@@ -1040,7 +1135,7 @@ mod tests {
         assert!(version.status.success());
         assert_eq!(
             String::from_utf8_lossy(&version.stdout).trim(),
-            "0.1.1-rc.1"
+            "0.1.2-alpha.3"
         );
         fs::remove_dir_all(&data_dir).expect("temporary runtime should be removable");
     }
