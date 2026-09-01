@@ -16,7 +16,7 @@ Harness 及其 Web UI 均已内置，无需安装 Node.js，也不需要手动�
 
 **当前版本：[DSH Desktop v0.1.7](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.7)**
 
-> 当前 `main` 分支正在准备 v0.1.9，修复 alpha.3 在 macOS 内嵌 WebView 中的认证 Cookie 问题。
+> 当前 `main` 分支正在准备 v0.1.10，修复 alpha.3 在 macOS 内嵌 WebView 中的认证 Cookie 问题。
 
 | 平台 | 推荐下载 |
 | --- | --- |

@@ -24,6 +24,7 @@ const PROJECT_HOMEPAGE_MENU_ID: &str = "open-project-homepage";
 const DESKTOP_PROFILE_NAME: &str = "web";
 const DESKTOP_PROFILE_RELOAD: &str = "startup";
 const DESKTOP_PROFILE_BUNDLES: [&str; 2] = ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"];
+const EMBEDDED_WEBVIEW_HOST: &str = "localhost";
 // The alpha.3 workspace domain remains v2, so keep this directory stable when
 // upgrading. Its projection cache is v4/per-record and is safely rebuilt as a
 // non-authoritative cache without moving or deleting workspace data.
@@ -241,12 +242,24 @@ impl BackendManager {
                         log::info!(target: "dsh", "{line}");
                         if let Some(url) = readiness_url(&line) {
                             #[cfg(desktop)]
-                            if let Err(error) = prime_webview_cookie(&app_for_events, &url) {
-                                log::warn!(
-                                    "failed to prime embedded WebView authentication: {error}"
-                                );
-                            }
-                            let status = BackendStatus::running(url);
+                            let navigation_url = match prime_webview_cookie(&app_for_events, &url) {
+                                Ok(url) => {
+                                    log::info!(
+                                        target: "dsh",
+                                        "embedded WebView authentication cookie primed"
+                                    );
+                                    url
+                                }
+                                Err(error) => {
+                                    log::warn!(
+                                        "failed to prime embedded WebView authentication: {error}"
+                                    );
+                                    url
+                                }
+                            };
+                            #[cfg(not(desktop))]
+                            let navigation_url = url;
+                            let status = BackendStatus::running(navigation_url);
                             let mut runtime = manager.inner.lock().await;
                             if runtime.generation == generation {
                                 runtime.status = status.clone();
@@ -758,12 +771,16 @@ fn readiness_url(line: &str) -> Option<String> {
 }
 
 #[cfg(desktop)]
-fn prime_webview_cookie(app: &AppHandle, authenticated_url: &str) -> Result<(), String> {
+fn prime_webview_cookie(app: &AppHandle, authenticated_url: &str) -> Result<String, String> {
     let parsed = Url::parse(authenticated_url).map_err(|error| format!("认证地址无效：{error}"))?;
     if parsed.scheme() != "http" || parsed.host_str() != Some("127.0.0.1") {
         return Err("认证地址不是受信任的本地 HTTP 地址".to_owned());
     }
     let port = parsed.port().ok_or_else(|| "认证地址缺少端口".to_owned())?;
+    let mut navigation_url = parsed.clone();
+    navigation_url
+        .set_host(Some(EMBEDDED_WEBVIEW_HOST))
+        .map_err(|_| "无法转换 WebView 本地地址".to_owned())?;
     let mut target = parsed.path().to_owned();
     if target.is_empty() {
         target.push('/');
@@ -783,7 +800,7 @@ fn prime_webview_cookie(app: &AppHandle, authenticated_url: &str) -> Result<(), 
         .set_read_timeout(Some(Duration::from_secs(2)))
         .map_err(|error| format!("无法设置认证读取超时：{error}"))?;
     let request = format!(
-        "GET {target} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\nUser-Agent: DSH-Desktop\r\n\r\n"
+        "GET {target} HTTP/1.1\r\nHost: {EMBEDDED_WEBVIEW_HOST}:{port}\r\nConnection: close\r\nUser-Agent: DSH-Desktop\r\n\r\n"
     );
     stream
         .write_all(request.as_bytes())
@@ -804,8 +821,9 @@ fn prime_webview_cookie(app: &AppHandle, authenticated_url: &str) -> Result<(), 
         }
     }
     let (name, value) = parse_set_cookie(&response)?;
+    let cookie_name = name.clone();
     let cookie = tauri::webview::Cookie::build((name, value))
-        .domain("127.0.0.1")
+        .domain(EMBEDDED_WEBVIEW_HOST)
         .path("/")
         .http_only(true)
         .build();
@@ -814,7 +832,23 @@ fn prime_webview_cookie(app: &AppHandle, authenticated_url: &str) -> Result<(), 
         .ok_or_else(|| "找不到主窗口，无法写入认证 Cookie".to_owned())?;
     window
         .set_cookie(cookie)
-        .map_err(|error| format!("无法写入 WebView 认证 Cookie：{error}"))
+        .map_err(|error| format!("无法写入 WebView 认证 Cookie：{error}"))?;
+
+    #[cfg(target_os = "macos")]
+    {
+        let check_url = Url::parse(&format!("http://{EMBEDDED_WEBVIEW_HOST}:{port}/"))
+            .map_err(|error| format!("无法检查 WebView 认证 Cookie：{error}"))?;
+        let visible = window
+            .cookies_for_url(check_url)
+            .map_err(|error| format!("无法读取 WebView 认证 Cookie：{error}"))?
+            .iter()
+            .any(|item| item.name() == cookie_name);
+        if !visible {
+            return Err("WebView Cookie 写入后不可见".to_owned());
+        }
+    }
+
+    Ok(navigation_url.to_string())
 }
 
 #[cfg(desktop)]

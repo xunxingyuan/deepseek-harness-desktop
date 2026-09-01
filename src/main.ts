@@ -158,7 +158,7 @@ function renderUpdate(): void {
 function navigateToHarness(url: string): void {
   if (navigating) return
   const parsed = new URL(url)
-  if (parsed.protocol !== 'http:' || parsed.hostname !== '127.0.0.1') {
+  if (parsed.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(parsed.hostname)) {
     latestBackendStatus = {
       phase: 'failed',
       message: '后台返回了不安全的地址，桌面壳已阻止跳转。',
