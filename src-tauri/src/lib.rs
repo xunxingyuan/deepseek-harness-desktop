@@ -1,10 +1,11 @@
 use std::{
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
     fs::{self, File},
-    io::Write,
+    io::{Read, Write},
+    net::{SocketAddr, TcpStream},
     path::{Component, Path, PathBuf},
     sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use flate2::read::GzDecoder;
@@ -239,6 +240,12 @@ impl BackendManager {
                         let line = String::from_utf8_lossy(&bytes).trim().to_owned();
                         log::info!(target: "dsh", "{line}");
                         if let Some(url) = readiness_url(&line) {
+                            #[cfg(desktop)]
+                            if let Err(error) = prime_webview_cookie(&app_for_events, &url) {
+                                log::warn!(
+                                    "failed to prime embedded WebView authentication: {error}"
+                                );
+                            }
                             let status = BackendStatus::running(url);
                             let mut runtime = manager.inner.lock().await;
                             if runtime.generation == generation {
@@ -750,6 +757,97 @@ fn readiness_url(line: &str) -> Option<String> {
     Some(parsed.to_string())
 }
 
+#[cfg(desktop)]
+fn prime_webview_cookie(app: &AppHandle, authenticated_url: &str) -> Result<(), String> {
+    let parsed = Url::parse(authenticated_url).map_err(|error| format!("认证地址无效：{error}"))?;
+    if parsed.scheme() != "http" || parsed.host_str() != Some("127.0.0.1") {
+        return Err("认证地址不是受信任的本地 HTTP 地址".to_owned());
+    }
+    let port = parsed.port().ok_or_else(|| "认证地址缺少端口".to_owned())?;
+    let mut target = parsed.path().to_owned();
+    if target.is_empty() {
+        target.push('/');
+    }
+    if let Some(query) = parsed.query() {
+        target.push('?');
+        target.push_str(query);
+    }
+    if target.contains(['\r', '\n']) {
+        return Err("认证地址包含非法换行符".to_owned());
+    }
+
+    let address = SocketAddr::from(([127, 0, 0, 1], port));
+    let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(2))
+        .map_err(|error| format!("无法连接 Harness 认证端点：{error}"))?;
+    stream
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .map_err(|error| format!("无法设置认证读取超时：{error}"))?;
+    let request = format!(
+        "GET {target} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\nUser-Agent: DSH-Desktop\r\n\r\n"
+    );
+    stream
+        .write_all(request.as_bytes())
+        .map_err(|error| format!("无法请求 Harness 认证端点：{error}"))?;
+
+    let mut response = Vec::with_capacity(4096);
+    let mut buffer = [0_u8; 4096];
+    while response.len() < 64 * 1024 {
+        let count = stream
+            .read(&mut buffer)
+            .map_err(|error| format!("无法读取 Harness 认证响应：{error}"))?;
+        if count == 0 {
+            break;
+        }
+        response.extend_from_slice(&buffer[..count]);
+        if response.windows(4).any(|window| window == b"\r\n\r\n") {
+            break;
+        }
+    }
+    let (name, value) = parse_set_cookie(&response)?;
+    let cookie = tauri::webview::Cookie::build((name, value))
+        .domain("127.0.0.1")
+        .path("/")
+        .http_only(true)
+        .build();
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "找不到主窗口，无法写入认证 Cookie".to_owned())?;
+    window
+        .set_cookie(cookie)
+        .map_err(|error| format!("无法写入 WebView 认证 Cookie：{error}"))
+}
+
+#[cfg(desktop)]
+fn parse_set_cookie(response: &[u8]) -> Result<(String, String), String> {
+    let headers_end = response
+        .windows(4)
+        .position(|window| window == b"\r\n\r\n")
+        .ok_or_else(|| "Harness 认证响应缺少响应头".to_owned())?;
+    let headers = std::str::from_utf8(&response[..headers_end])
+        .map_err(|_| "Harness 认证响应包含无效字符".to_owned())?;
+    let header = headers.lines().find_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        name.eq_ignore_ascii_case("set-cookie")
+            .then_some(value.trim_start())
+    });
+    let pair = header
+        .and_then(|value| value.split(';').next())
+        .ok_or_else(|| "Harness 认证响应缺少 Set-Cookie".to_owned())?;
+    let (name, value) = pair
+        .split_once('=')
+        .ok_or_else(|| "Harness 认证 Cookie 格式无效".to_owned())?;
+    if name.is_empty()
+        || value.is_empty()
+        || name
+            .bytes()
+            .any(|byte| byte <= 0x20 || byte >= 0x7f || byte == b'=' || byte == b';')
+        || value.contains(['\r', '\n'])
+    {
+        return Err("Harness 认证 Cookie 格式无效".to_owned());
+    }
+    Ok((name.to_owned(), value.to_owned()))
+}
+
 fn emit_status(app: &AppHandle, status: BackendStatus) {
     if let Err(error) = app.emit("backend-status", status) {
         log::warn!("failed to emit backend status: {error}");
@@ -881,10 +979,10 @@ mod tests {
 
     use super::{
         archive_link_stays_inside, ensure_harness_runtime, merge_workspace_storage,
-        migrate_legacy_harness_data, prepare_desktop_profile, read_workspace_storage,
-        readiness_url, safe_archive_path, StorageUnit, WorkspaceGlobal, WorkspaceRecord,
-        WorkspaceStorage, WorkspaceTables, DESKTOP_PROFILE_BUNDLES, DESKTOP_PROFILE_RELOAD,
-        HARNESS_MIGRATION_VERSION,
+        migrate_legacy_harness_data, parse_set_cookie, prepare_desktop_profile,
+        read_workspace_storage, readiness_url, safe_archive_path, StorageUnit, WorkspaceGlobal,
+        WorkspaceRecord, WorkspaceStorage, WorkspaceTables, DESKTOP_PROFILE_BUNDLES,
+        DESKTOP_PROFILE_RELOAD, HARNESS_MIGRATION_VERSION,
     };
     use serde_json::{Map, Value};
     use std::collections::BTreeMap;
@@ -942,6 +1040,20 @@ mod tests {
         assert_eq!(
             readiness_url("dsh web: http://127.0.0.1:49152"),
             Some("http://127.0.0.1:49152/".into())
+        );
+    }
+
+    #[cfg(desktop)]
+    #[test]
+    fn preserves_and_extracts_browser_auth_cookie() {
+        let response = b"HTTP/1.1 303 See Other\r\nLocation: /\r\nSet-Cookie: dsh-session=abc123; Path=/; HttpOnly\r\n\r\n";
+        assert_eq!(
+            parse_set_cookie(response).expect("Set-Cookie should parse"),
+            ("dsh-session".to_owned(), "abc123".to_owned())
+        );
+        assert_eq!(
+            readiness_url("dsh web: http://127.0.0.1:49152/?token=launch-token"),
+            Some("http://127.0.0.1:49152/?token=launch-token".into())
         );
     }
 

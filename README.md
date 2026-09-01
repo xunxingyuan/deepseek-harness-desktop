@@ -16,6 +16,9 @@ install Node.js or run `npx @deepseek-ai/dsh web`.
 
 **Current release: [DSH Desktop v0.1.8](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.8)**
 
+> The `main` branch is preparing v0.1.9 with a fix for alpha.3 browser-auth
+> cookies in the embedded macOS WebView.
+
 | Platform | Recommended download |
 | --- | --- |
 | Windows x64 | [EXE installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.8/DSH.Desktop_0.1.8_x64-setup.exe) |
