@@ -16,6 +16,8 @@ install Node.js or run `npx @deepseek-ai/dsh web`.
 
 **Current release: [DSH Desktop v0.1.10](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.10)**
 
+> The `main` branch is preparing v0.1.12 with DeepSeek Harness 0.1.6-alpha.2.
+
 | Platform | Recommended download |
 | --- | --- |
 | Windows x64 | [EXE installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.10/DSH.Desktop_0.1.10_x64-setup.exe) |
@@ -47,7 +49,7 @@ Versions are deliberately pinned for reproducible releases:
 
 | Component | Version |
 | --- | --- |
-| DeepSeek Harness | `0.1.2-alpha.3` |
+| DeepSeek Harness | `0.1.6-alpha.2` |
 | Node.js | `24.19.0` (Krypton LTS) |
 | Tauri JavaScript API | `2.11.1` |
 | Tauri CLI | `2.11.4` |
@@ -57,7 +59,7 @@ Versions are deliberately pinned for reproducible releases:
 > rollback. Starting with v0.1.6, DSH Desktop automatically imports legacy
 > workspace records and session history into rc.8 without overwriting current
 > rc.8 data. It backs up the current workspace index before migration and keeps
-> the original legacy data intact. Harness 0.1.2-alpha.3 keeps the workspace v2
+> the original legacy data intact. Harness 0.1.6-alpha.2 keeps the workspace v2
 > schema, so upgrades continue using the existing directory instead of isolating
 > workspaces again. The non-authoritative session projection cache is rebuilt in
 > its new layout. Upstream removed the optional SQLite Session persistence

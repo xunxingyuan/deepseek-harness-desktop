@@ -1,9 +1,9 @@
 {
   "name": "deepseek-harness-desktop-runtime",
-  "version": "0.1.10",
+  "version": "0.1.12",
   "private": true,
   "description": "Pinned production dependency tree bundled by DSH Desktop",
   "dependencies": {
-    "@deepseek-ai/dsh": "0.1.2-alpha.3"
+    "@deepseek-ai/dsh": "0.1.6-alpha.2"
   }
 }

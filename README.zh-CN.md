@@ -16,6 +16,8 @@ Harness 及其 Web UI 均已内置，无需安装 Node.js，也不需要手动�
 
 **当前版本：[DSH Desktop v0.1.10](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.10)**
 
+> 当前 `main` 分支正在准备 v0.1.12，内置 DeepSeek Harness 0.1.6-alpha.2。
+
 | 平台 | 推荐下载 |
 | --- | --- |
 | Windows x64 | [EXE 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.10/DSH.Desktop_0.1.10_x64-setup.exe) |
@@ -42,7 +44,7 @@ DSH Desktop 启动后会在随机的 `127.0.0.1` 本地端口运行 Harness 服�
 
 | 组件 | 版本 |
 | --- | --- |
-| DeepSeek Harness | `0.1.2-alpha.3` |
+| DeepSeek Harness | `0.1.6-alpha.2` |
 | Node.js | `24.19.0`（Krypton LTS） |
 | Tauri JavaScript API | `2.11.1` |
 | Tauri CLI | `2.11.4` |
@@ -50,7 +52,7 @@ DSH Desktop 启动后会在随机的 `127.0.0.1` 本地端口运行 Harness 服�
 > Harness rc.8 使用了不兼容的 SQLite 存储格式。DSH Desktop v0.1.4 会使用新的
 > 数据目录启动，同时保留旧版本本地数据以便回退。v0.1.6 起，应用会自动把旧工作区
 > 记录和历史会话导入 rc.8，并保留当前已有的 rc.8 数据；迁移前会备份工作区索引，
-> 原始旧数据也不会删除。Harness 0.1.2-alpha.3 继续使用 workspace v2，因此升级时
+> 原始旧数据也不会删除。Harness 0.1.6-alpha.2 继续使用 workspace v2，因此升级时
 > 继续使用现有目录，不会再次隔离工作区。新版会重建非权威的会话投影缓存；官方同时
 > 移除了可选的 SQLite Session 持久化后端。如果你曾主动配置 SQLite，请先用旧版本
 > 导出会话；DSH Desktop 默认使用的 JSON 持久化不受影响。

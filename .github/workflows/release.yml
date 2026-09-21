@@ -65,7 +65,7 @@ jobs:
           releaseBody: |
             更新内容
 
-            - 内置 DeepSeek Harness 0.1.2-alpha.3，跟进官方新版能力与修复。
+            - 内置 DeepSeek Harness 0.1.6-alpha.2，跟进官方新版能力与修复。
             - 优化长会话导航、渲染性能和图片消息处理。
             - 延续现有 rc.8 工作区数据目录，升级后项目与历史会话保持可见。
             - 新版会重建非权威的会话投影缓存；默认 JSON 持久化保持兼容。
@@ -75,7 +75,7 @@ jobs:
 
             What's new
 
-            - Bundles DeepSeek Harness 0.1.2-alpha.3 with the latest upstream capabilities and fixes.
+            - Bundles DeepSeek Harness 0.1.6-alpha.2 with the latest upstream capabilities and fixes.
             - Improves long-conversation navigation, rendering performance, and image message handling.
             - Reuses the existing rc.8 data directory so projects and session history remain visible after upgrading.
             - Rebuilds the non-authoritative session projection cache; default JSON persistence remains compatible.
@@ -114,7 +114,7 @@ jobs:
           releaseBody: |
             更新内容
 
-            - 内置 DeepSeek Harness 0.1.2-alpha.3，跟进官方新版能力与修复。
+            - 内置 DeepSeek Harness 0.1.6-alpha.2，跟进官方新版能力与修复。
             - 优化长会话导航、渲染性能和图片消息处理。
             - 延续现有 rc.8 工作区数据目录，升级后项目与历史会话保持可见。
             - 新版会重建非权威的会话投影缓存；默认 JSON 持久化保持兼容。
@@ -124,7 +124,7 @@ jobs:
 
             What's new
 
-            - Bundles DeepSeek Harness 0.1.2-alpha.3 with the latest upstream capabilities and fixes.
+            - Bundles DeepSeek Harness 0.1.6-alpha.2 with the latest upstream capabilities and fixes.
             - Improves long-conversation navigation, rendering performance, and image message handling.
             - Reuses the existing rc.8 data directory so projects and session history remain visible after upgrading.
             - Rebuilds the non-authoritative session projection cache; default JSON persistence remains compatible.

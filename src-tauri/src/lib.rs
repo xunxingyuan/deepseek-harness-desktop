@@ -18,15 +18,15 @@ use tauri_plugin_shell::{
 };
 use url::Url;
 
-const HARNESS_VERSION: &str = "0.1.2-alpha.3";
+const HARNESS_VERSION: &str = "0.1.6-alpha.2";
 const PROJECT_HOMEPAGE: &str = "https://github.com/xunxingyuan/deepseek-harness-desktop";
 const PROJECT_HOMEPAGE_MENU_ID: &str = "open-project-homepage";
 const DESKTOP_PROFILE_NAME: &str = "web";
 const DESKTOP_PROFILE_RELOAD: &str = "startup";
 const DESKTOP_PROFILE_BUNDLES: [&str; 2] = ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"];
 const EMBEDDED_WEBVIEW_HOST: &str = "localhost";
-// The alpha.3 workspace domain remains v2, so keep this directory stable when
-// upgrading. Its projection cache is v4/per-record and is safely rebuilt as a
+// The alpha.2 workspace domain remains v2, so keep this directory stable when
+// upgrading. Its projection cache is v7/per-record and is safely rebuilt as a
 // non-authoritative cache without moving or deleting workspace data.
 const HARNESS_DATA_SCHEMA: &str = "rc8";
 const HARNESS_MIGRATION_VERSION: &str = "workspace-v1";
@@ -1281,7 +1281,7 @@ mod tests {
         assert!(version.status.success());
         assert_eq!(
             String::from_utf8_lossy(&version.stdout).trim(),
-            "0.1.2-alpha.3"
+            "0.1.6-alpha.2"
         );
         fs::remove_dir_all(&data_dir).expect("temporary runtime should be removable");
     }

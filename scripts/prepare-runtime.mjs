@@ -8,7 +8,7 @@ import extractZip from 'extract-zip'
 import * as tar from 'tar'
 
 const NODE_VERSION = 'v24.19.0'
-const HARNESS_VERSION = '0.1.2-alpha.3'
+const HARNESS_VERSION = '0.1.6-alpha.2'
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const projectRoot = resolve(scriptDir, '..')
 const runtimeDir = join(projectRoot, 'src-tauri', 'runtime')

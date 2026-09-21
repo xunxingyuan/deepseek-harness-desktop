@@ -21,7 +21,7 @@ export interface BackendStatus {
 }
 
 const APP_VERSION = packageInfo.version
-const HARNESS_VERSION = '0.1.2-alpha.3'
+const HARNESS_VERSION = '0.1.6-alpha.2'
 const UPDATE_CHECK_TIMEOUT_MS = 5_000
 
 const root = document.querySelector<HTMLElement>('#app')
