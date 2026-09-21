@@ -67,6 +67,12 @@
         "installMode": "currentUser",
         "languages": ["SimpChinese", "English"]
       }
+    },
+    "linux": {
+      "deb": {
+        "section": "devel",
+        "priority": "optional"
+      }
     }
   },
   "plugins": {

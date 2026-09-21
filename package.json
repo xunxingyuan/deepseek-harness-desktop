@@ -9,6 +9,7 @@
     "build:web": "tsc --noEmit && vite build",
     "runtime:prepare": "node scripts/prepare-runtime.mjs",
     "build:desktop": "pnpm runtime:prepare && tauri build",
+    "build:linux": "node scripts/build-linux-deb.mjs",
     "check": "tsc --noEmit && cargo check --manifest-path src-tauri/Cargo.toml",
     "test": "vitest run"
   },

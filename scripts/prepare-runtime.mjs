@@ -35,6 +35,8 @@ function nodeDistribution(target) {
     'x86_64-apple-darwin': { platform: 'darwin', arch: 'x64', extension: 'tar.gz', binary: 'bin/node' },
     'aarch64-pc-windows-msvc': { platform: 'win', arch: 'arm64', extension: 'zip', binary: 'node.exe' },
     'x86_64-pc-windows-msvc': { platform: 'win', arch: 'x64', extension: 'zip', binary: 'node.exe' },
+    'aarch64-unknown-linux-gnu': { platform: 'linux', arch: 'arm64', extension: 'tar.gz', binary: 'bin/node' },
+    'x86_64-unknown-linux-gnu': { platform: 'linux', arch: 'x64', extension: 'tar.gz', binary: 'bin/node' },
   }
   const distribution = table[target]
   if (!distribution) {

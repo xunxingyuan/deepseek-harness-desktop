@@ -31,6 +31,18 @@ const EMBEDDED_WEBVIEW_HOST: &str = "localhost";
 const HARNESS_DATA_SCHEMA: &str = "rc8";
 const HARNESS_MIGRATION_VERSION: &str = "workspace-v1";
 const MAX_DIAGNOSTIC_LINES: usize = 12;
+// Environment variables that may carry a proxy URL. The bundled Harness only
+// ships http-proxy-agent/https-proxy-agent (no SOCKS support), so a GNOME/Clash
+// `socks://` value inherited by the sidecar would break every outbound model
+// request. We normalize such schemes to `http://` right before spawning.
+const PROXY_ENV_KEYS: [&str; 6] = [
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+];
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct StorageUnit {
@@ -201,7 +213,7 @@ impl BackendManager {
         prepare_desktop_profile(&dsh_home)?;
         migrate_legacy_harness_data(&legacy_dsh_home, &dsh_home)?;
 
-        let command = app
+        let mut command = app
             .shell()
             .sidecar("node")
             .map_err(|error| format!("无法定位内置 Node.js：{error}"))?
@@ -218,6 +230,13 @@ impl BackendManager {
             .env("DSH_AGENTS_HOME", agents_home)
             .env("DSH_TELEMETRY_DISABLED", "1")
             .current_dir(working_dir);
+
+        // Neutralize any inherited SOCKS proxy so the Harness HTTP agents can
+        // still reach the model API, without disturbing direct or HTTP(S)
+        // proxy setups.
+        for (key, value) in sanitized_proxy_env() {
+            command = command.env(key, value);
+        }
 
         let (mut events, child) = command
             .spawn()
@@ -313,6 +332,48 @@ impl BackendManager {
 
         Ok(self.status().await)
     }
+}
+
+/// Rewrites a `socks*://` proxy URL to `http://`, preserving userinfo, host,
+/// port and any remaining components. Returns `None` when the value is empty,
+/// has no scheme, or already uses a non-SOCKS scheme, so such values are simply
+/// inherited by the sidecar unchanged.
+///
+/// Clash Verge (and most GNOME system-proxy setups) expose a single mixed port
+/// that accepts HTTP CONNECT as well as SOCKS. Because the Harness has no SOCKS
+/// agent, converting the scheme to `http://` keeps traffic flowing through the
+/// system proxy instead of failing, while a proxy-free environment still
+/// connects directly since no override is produced.
+fn normalize_proxy_scheme(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    let separator = trimmed.find("://")?;
+    let scheme = &trimmed[..separator];
+    if !scheme.to_ascii_lowercase().starts_with("socks") {
+        return None;
+    }
+    Some(format!("http{}", &trimmed[separator..]))
+}
+
+/// Collects the proxy environment overrides to apply to the Harness sidecar.
+/// Only variables whose current value uses a SOCKS scheme are rewritten;
+/// everything else is left untouched so that (1) users without a proxy keep
+/// connecting directly and (2) users with an existing HTTP(S) proxy keep using
+/// it. The sidecar inherits the full parent environment by default, so we only
+/// need to override the specific keys that would otherwise break.
+fn sanitized_proxy_env() -> Vec<(String, String)> {
+    let mut overrides = Vec::new();
+    for key in PROXY_ENV_KEYS {
+        if let Ok(value) = std::env::var(key) {
+            if let Some(normalized) = normalize_proxy_scheme(&value) {
+                log::info!(
+                    target: "dsh",
+                    "normalized {key} SOCKS proxy scheme to http:// for Harness sidecar"
+                );
+                overrides.push((key.to_owned(), normalized));
+            }
+        }
+    }
+    overrides
 }
 
 fn migrate_legacy_harness_data(legacy_home: &Path, target_home: &Path) -> Result<(), String> {
@@ -1013,8 +1074,9 @@ mod tests {
 
     use super::{
         archive_link_stays_inside, ensure_harness_runtime, merge_workspace_storage,
-        migrate_legacy_harness_data, parse_set_cookie, prepare_desktop_profile,
-        read_workspace_storage, readiness_url, safe_archive_path, StorageUnit, WorkspaceGlobal,
+        migrate_legacy_harness_data, normalize_proxy_scheme, parse_set_cookie,
+        prepare_desktop_profile, read_workspace_storage, readiness_url, safe_archive_path,
+        StorageUnit, WorkspaceGlobal,
         WorkspaceRecord, WorkspaceStorage, WorkspaceTables, DESKTOP_PROFILE_BUNDLES,
         DESKTOP_PROFILE_RELOAD, HARNESS_MIGRATION_VERSION,
     };
@@ -1067,6 +1129,30 @@ mod tests {
             .expect("test clock should be valid")
             .as_nanos();
         std::env::temp_dir().join(format!("dsh-desktop-{name}-{}-{nonce}", std::process::id()))
+    }
+
+    #[test]
+    fn normalizes_socks_proxy_scheme_for_sidecar() {
+        // SOCKS variants are rewritten to http:// so the Harness agents can use
+        // the Clash Verge mixed port.
+        assert_eq!(
+            normalize_proxy_scheme("socks://127.0.0.1:7897"),
+            Some("http://127.0.0.1:7897".to_owned())
+        );
+        assert_eq!(
+            normalize_proxy_scheme("socks5://127.0.0.1:7897"),
+            Some("http://127.0.0.1:7897".to_owned())
+        );
+        assert_eq!(
+            normalize_proxy_scheme("SOCKS5://user:pass@proxy.example:1080"),
+            Some("http://user:pass@proxy.example:1080".to_owned())
+        );
+        // Non-SOCKS schemes, scheme-less values and blanks are inherited as-is.
+        assert_eq!(normalize_proxy_scheme("http://127.0.0.1:7897"), None);
+        assert_eq!(normalize_proxy_scheme("https://proxy.example:8443"), None);
+        assert_eq!(normalize_proxy_scheme("127.0.0.1:7897"), None);
+        assert_eq!(normalize_proxy_scheme(""), None);
+        assert_eq!(normalize_proxy_scheme("   "), None);
     }
 
     #[test]

@@ -28,6 +28,10 @@ jobs:
             platform: macos-26-intel
             target: x86_64-apple-darwin
             bundles: app,dmg
+          - name: Linux x64
+            platform: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            bundles: deb
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
     steps:
@@ -40,6 +44,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+      - name: Install Linux system dependencies
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential curl wget file \
+            libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev
       - name: Install source dependencies
         run: pnpm install --frozen-lockfile
       - name: Import Apple certificate for embedded runtime signing
@@ -88,6 +101,7 @@ jobs:
             - Windows x64：推荐 `.exe`，集中部署可使用 `.msi`。
             - Apple Silicon Mac：下载 `aarch64` `.dmg`。
             - Intel Mac：下载 `x64` `.dmg`。
+            - Linux x64：下载 `.deb`（Ubuntu/Debian），内置 Node.js 无需额外依赖。
             - macOS 安装包经过签名、公证及内置 Node.js/V8 启动验证。
           releaseDraft: true
           prerelease: false
@@ -137,6 +151,7 @@ jobs:
             - Windows x64：推荐 `.exe`，集中部署可使用 `.msi`。
             - Apple Silicon Mac：下载 `aarch64` `.dmg`。
             - Intel Mac：下载 `x64` `.dmg`。
+            - Linux x64：下载 `.deb`（Ubuntu/Debian），内置 Node.js 无需额外依赖。
             - macOS 安装包经过签名、公证及内置 Node.js/V8 启动验证。
           releaseDraft: true
           prerelease: false
