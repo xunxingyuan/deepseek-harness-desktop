@@ -689,7 +689,7 @@ dependencies = [
 
 [[package]]
 name = "deepseek-harness-desktop"
-version = "0.1.14-test.1"
+version = "0.1.14-test.2"
 dependencies = [
  "flate2",
  "log",
