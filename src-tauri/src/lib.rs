@@ -1,11 +1,10 @@
 use std::{
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
     fs::{self, File},
-    io::{Read, Write},
-    net::{SocketAddr, TcpStream},
+    io::Write,
     path::{Component, Path, PathBuf},
     sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use flate2::read::GzDecoder;
@@ -130,6 +129,7 @@ struct BackendRuntime {
     child: Option<CommandChild>,
     generation: u64,
     status: BackendStatus,
+    authenticated_url: Option<String>,
     diagnostics: VecDeque<String>,
 }
 
@@ -139,6 +139,7 @@ impl Default for BackendRuntime {
             child: None,
             generation: 0,
             status: BackendStatus::starting(),
+            authenticated_url: None,
             diagnostics: VecDeque::new(),
         }
     }
@@ -157,6 +158,7 @@ impl BackendManager {
     async fn stop(&self) {
         let mut runtime = self.inner.lock().await;
         runtime.generation = runtime.generation.wrapping_add(1);
+        runtime.authenticated_url = None;
         if let Some(child) = runtime.child.take() {
             if let Err(error) = child.kill() {
                 log::warn!("failed to stop Harness sidecar: {error}");
@@ -182,6 +184,7 @@ impl BackendManager {
             let mut runtime = self.inner.lock().await;
             runtime.generation = runtime.generation.wrapping_add(1);
             runtime.status = BackendStatus::starting();
+            runtime.authenticated_url = None;
             runtime.diagnostics.clear();
             runtime.generation
         };
@@ -242,36 +245,27 @@ impl BackendManager {
                         if let Some(url) = readiness_url(&line) {
                             // The readiness URL contains a credential. Never persist it in logs.
                             log::info!(target: "dsh", "Harness local endpoint ready");
-                            #[cfg(desktop)]
-                            let navigation_url = match prime_webview_cookie(&app_for_events, &url) {
-                                Ok(url) => {
-                                    log::info!(
-                                        target: "dsh",
-                                        "embedded WebView authentication cookie primed"
-                                    );
-                                    url
-                                }
-                                Err(error) => {
-                                    log::warn!(
-                                        "failed to prime embedded WebView authentication: {error}"
-                                    );
-                                    let status = BackendStatus::failed(format!(
-                                        "本地服务认证未完成，请重试：{error}"
-                                    ));
-                                    let mut runtime = manager.inner.lock().await;
-                                    if runtime.generation == generation {
-                                        runtime.status = status.clone();
-                                        drop(runtime);
-                                        emit_status(&app_for_events, status);
+                            let (authenticated_url, public_url) =
+                                match harness_navigation_urls(&url) {
+                                    Ok(urls) => urls,
+                                    Err(error) => {
+                                        log::warn!("invalid Harness navigation URL: {error}");
+                                        let status = BackendStatus::failed(format!(
+                                            "本地服务认证地址无效，请重试：{error}"
+                                        ));
+                                        let mut runtime = manager.inner.lock().await;
+                                        if runtime.generation == generation {
+                                            runtime.status = status.clone();
+                                            drop(runtime);
+                                            emit_status(&app_for_events, status);
+                                        }
+                                        continue;
                                     }
-                                    continue;
-                                }
-                            };
-                            #[cfg(not(desktop))]
-                            let navigation_url = url;
-                            let status = BackendStatus::running(navigation_url);
+                                };
+                            let status = BackendStatus::running(public_url);
                             let mut runtime = manager.inner.lock().await;
                             if runtime.generation == generation {
+                                runtime.authenticated_url = Some(authenticated_url);
                                 runtime.status = status.clone();
                                 drop(runtime);
                                 emit_status(&app_for_events, status);
@@ -297,6 +291,7 @@ impl BackendManager {
                             break;
                         }
                         runtime.child = None;
+                        runtime.authenticated_url = None;
                         let detail = runtime
                             .diagnostics
                             .iter()
@@ -782,139 +777,30 @@ fn readiness_url(line: &str) -> Option<String> {
     Some(parsed.to_string())
 }
 
-#[cfg(desktop)]
-fn prime_webview_cookie(app: &AppHandle, authenticated_url: &str) -> Result<String, String> {
-    let parsed = Url::parse(authenticated_url).map_err(|error| format!("认证地址无效：{error}"))?;
-    if parsed.scheme() != "http" || parsed.host_str() != Some("127.0.0.1") {
+fn harness_navigation_urls(authenticated_url: &str) -> Result<(String, String), String> {
+    let mut authenticated =
+        Url::parse(authenticated_url).map_err(|error| format!("认证地址无效：{error}"))?;
+    if authenticated.scheme() != "http"
+        || authenticated.host_str() != Some("127.0.0.1")
+        || authenticated.port().is_none()
+        || !authenticated.username().is_empty()
+        || authenticated.password().is_some()
+        || authenticated.path() != "/"
+        || authenticated.fragment().is_some()
+    {
         return Err("认证地址不是受信任的本地 HTTP 地址".to_owned());
     }
-    let port = parsed.port().ok_or_else(|| "认证地址缺少端口".to_owned())?;
-    let mut navigation_url = parsed.clone();
-    navigation_url
+    let parameters = authenticated.query_pairs().collect::<Vec<_>>();
+    if parameters.len() != 1 || parameters[0].0 != "token" || parameters[0].1.is_empty() {
+        return Err("认证地址缺少唯一的启动 token".to_owned());
+    }
+    authenticated
         .set_host(Some(EMBEDDED_WEBVIEW_HOST))
         .map_err(|_| "无法转换 WebView 本地地址".to_owned())?;
-    let mut target = parsed.path().to_owned();
-    if target.is_empty() {
-        target.push('/');
-    }
-    if let Some(query) = parsed.query() {
-        target.push('?');
-        target.push_str(query);
-    }
-    if target.contains(['\r', '\n']) {
-        return Err("认证地址包含非法换行符".to_owned());
-    }
 
-    let address = SocketAddr::from(([127, 0, 0, 1], port));
-    let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(2))
-        .map_err(|error| format!("无法连接 Harness 认证端点：{error}"))?;
-    stream
-        .set_read_timeout(Some(Duration::from_secs(2)))
-        .map_err(|error| format!("无法设置认证读取超时：{error}"))?;
-    let request = format!(
-        "GET {target} HTTP/1.1\r\nHost: {EMBEDDED_WEBVIEW_HOST}:{port}\r\nConnection: close\r\nUser-Agent: DSH-Desktop\r\n\r\n"
-    );
-    stream
-        .write_all(request.as_bytes())
-        .map_err(|error| format!("无法请求 Harness 认证端点：{error}"))?;
-
-    let mut response = Vec::with_capacity(4096);
-    let mut buffer = [0_u8; 4096];
-    while response.len() < 64 * 1024 {
-        let count = stream
-            .read(&mut buffer)
-            .map_err(|error| format!("无法读取 Harness 认证响应：{error}"))?;
-        if count == 0 {
-            break;
-        }
-        response.extend_from_slice(&buffer[..count]);
-        if response.windows(4).any(|window| window == b"\r\n\r\n") {
-            break;
-        }
-    }
-    let (name, value) = parse_set_cookie(&response)?;
-    let cookie = embedded_auth_cookie(name, value);
-    let window = app
-        .get_webview_window("main")
-        .ok_or_else(|| "找不到主窗口，无法写入认证 Cookie".to_owned())?;
-    window
-        .set_cookie(cookie.clone())
-        .map_err(|error| format!("无法写入 WebView 认证 Cookie：{error}"))?;
-
-    // Tauri queues set_cookie on the UI thread; its Ok result does not mean
-    // WebView2 has persisted it. Read back the exact value on this worker task
-    // (never in a synchronous UI event handler, which deadlocks on Windows).
-    navigation_url.set_query(None);
-    navigation_url.set_fragment(None);
-    for attempt in 0..20 {
-        let visible = window
-            .cookies_for_url(navigation_url.clone())
-            .map_err(|error| format!("无法读取 WebView 认证 Cookie：{error}"))?
-            .iter()
-            .any(|item| matches_auth_cookie(item, &cookie));
-        if visible {
-            // Do not exchange the token again in the WebView. Chromium can
-            // withhold Strict cookies on a renderer-initiated cross-site
-            // redirect from tauri.localhost. open_harness performs a native
-            // top-level navigation to this already authenticated clean URL.
-            return Ok(navigation_url.to_string());
-        }
-        if attempt < 19 {
-            std::thread::sleep(Duration::from_millis(100));
-        }
-    }
-
-    Err("WebView 未能保存本次认证 Cookie，请检查 WebView2 或重试".to_owned())
-}
-
-#[cfg(desktop)]
-fn embedded_auth_cookie(name: String, value: String) -> tauri::webview::Cookie<'static> {
-    tauri::webview::Cookie::build((name, value))
-        .domain(EMBEDDED_WEBVIEW_HOST)
-        .path("/")
-        .http_only(true)
-        .same_site(tauri::webview::cookie::SameSite::Strict)
-        .secure(false)
-        .build()
-}
-
-#[cfg(desktop)]
-fn matches_auth_cookie(
-    actual: &tauri::webview::Cookie<'_>,
-    expected: &tauri::webview::Cookie<'_>,
-) -> bool {
-    actual.name() == expected.name() && actual.value() == expected.value()
-}
-
-#[cfg(desktop)]
-fn parse_set_cookie(response: &[u8]) -> Result<(String, String), String> {
-    let headers_end = response
-        .windows(4)
-        .position(|window| window == b"\r\n\r\n")
-        .ok_or_else(|| "Harness 认证响应缺少响应头".to_owned())?;
-    let headers = std::str::from_utf8(&response[..headers_end])
-        .map_err(|_| "Harness 认证响应包含无效字符".to_owned())?;
-    let header = headers.lines().find_map(|line| {
-        let (name, value) = line.split_once(':')?;
-        name.eq_ignore_ascii_case("set-cookie")
-            .then_some(value.trim_start())
-    });
-    let pair = header
-        .and_then(|value| value.split(';').next())
-        .ok_or_else(|| "Harness 认证响应缺少 Set-Cookie".to_owned())?;
-    let (name, value) = pair
-        .split_once('=')
-        .ok_or_else(|| "Harness 认证 Cookie 格式无效".to_owned())?;
-    if name.is_empty()
-        || value.is_empty()
-        || name
-            .bytes()
-            .any(|byte| byte <= 0x20 || byte >= 0x7f || byte == b'=' || byte == b';')
-        || value.contains(['\r', '\n'])
-    {
-        return Err("Harness 认证 Cookie 格式无效".to_owned());
-    }
-    Ok((name.to_owned(), value.to_owned()))
+    let mut public = authenticated.clone();
+    public.set_query(None);
+    Ok((authenticated.to_string(), public.to_string()))
 }
 
 fn emit_status(app: &AppHandle, status: BackendStatus) {
@@ -931,12 +817,17 @@ async fn backend_status(manager: State<'_, BackendManager>) -> Result<BackendSta
 #[tauri::command]
 async fn open_harness(app: AppHandle, manager: State<'_, BackendManager>) -> Result<(), String> {
     // Use only the backend-owned URL, not a URL supplied by the frontend.
-    let runtime = manager.inner.lock().await;
-    if runtime.status.phase != "running" {
-        return Err("本地服务尚未完成认证，请重试".to_owned());
-    }
-    let url = runtime.status.url.as_deref().ok_or("本地服务地址不可用")?;
-    let parsed = validated_harness_navigation(url)?;
+    let url = {
+        let runtime = manager.inner.lock().await;
+        if runtime.status.phase != "running" {
+            return Err("本地服务尚未完成认证，请重试".to_owned());
+        }
+        runtime
+            .authenticated_url
+            .clone()
+            .ok_or("本地服务认证地址不可用")?
+    };
+    let parsed = validated_harness_navigation(&url)?;
     app.get_webview_window("main")
         .ok_or("找不到主窗口")?
         .navigate(parsed)
@@ -945,13 +836,16 @@ async fn open_harness(app: AppHandle, manager: State<'_, BackendManager>) -> Res
 
 fn validated_harness_navigation(url: &str) -> Result<Url, String> {
     let parsed = Url::parse(url).map_err(|_| "本地服务地址无效")?;
+    let parameters = parsed.query_pairs().collect::<Vec<_>>();
     if parsed.scheme() != "http"
         || parsed.host_str() != Some(EMBEDDED_WEBVIEW_HOST)
         || parsed.port().is_none()
         || !parsed.username().is_empty()
         || parsed.password().is_some()
         || parsed.path() != "/"
-        || parsed.query().is_some()
+        || parameters.len() != 1
+        || parameters[0].0 != "token"
+        || parameters[0].1.is_empty()
         || parsed.fragment().is_some()
     {
         return Err("本地服务地址未通过认证检查".to_owned());
@@ -970,6 +864,7 @@ async fn restart_backend(
             let status = BackendStatus::failed(error.clone());
             {
                 let mut runtime = manager.inner.lock().await;
+                runtime.authenticated_url = None;
                 runtime.status = status.clone();
             }
             emit_status(&app, status);
@@ -1053,6 +948,7 @@ pub fn run() {
                     let status = BackendStatus::failed(error);
                     {
                         let mut runtime = backend.inner.lock().await;
+                        runtime.authenticated_url = None;
                         runtime.status = status.clone();
                     }
                     emit_status(&handle, status);
@@ -1078,8 +974,8 @@ mod tests {
     use std::{fs, path::Path, process::Command, time::SystemTime};
 
     use super::{
-        archive_link_stays_inside, ensure_harness_runtime, merge_workspace_storage,
-        migrate_legacy_harness_data, parse_set_cookie, prepare_desktop_profile,
+        archive_link_stays_inside, ensure_harness_runtime, harness_navigation_urls,
+        merge_workspace_storage, migrate_legacy_harness_data, prepare_desktop_profile,
         read_workspace_storage, readiness_url, safe_archive_path, StorageUnit, WorkspaceGlobal,
         WorkspaceRecord, WorkspaceStorage, WorkspaceTables, DESKTOP_PROFILE_BUNDLES,
         DESKTOP_PROFILE_RELOAD, HARNESS_MIGRATION_VERSION,
@@ -1143,25 +1039,30 @@ mod tests {
         );
     }
 
-    #[cfg(desktop)]
     #[test]
-    fn preserves_and_extracts_browser_auth_cookie() {
-        let response = b"HTTP/1.1 303 See Other\r\nLocation: /\r\nSet-Cookie: dsh-session=abc123; Path=/; HttpOnly\r\n\r\n";
+    fn keeps_launch_token_private_and_exposes_clean_local_url() {
+        let readiness = "http://127.0.0.1:49152/?token=launch-token";
         assert_eq!(
-            parse_set_cookie(response).expect("Set-Cookie should parse"),
-            ("dsh-session".to_owned(), "abc123".to_owned())
+            readiness_url(&format!("dsh web: {readiness}")),
+            Some(readiness.into())
         );
-        assert_eq!(
-            readiness_url("dsh web: http://127.0.0.1:49152/?token=launch-token"),
-            Some("http://127.0.0.1:49152/?token=launch-token".into())
-        );
+        let (authenticated, public) =
+            harness_navigation_urls(readiness).expect("valid local launch URL");
+        assert_eq!(authenticated, "http://localhost:49152/?token=launch-token");
+        assert_eq!(public, "http://localhost:49152/");
     }
 
     #[test]
-    fn native_navigation_rejects_tokens_and_non_local_destinations() {
-        assert!(super::validated_harness_navigation("http://localhost:49152/").is_ok());
+    fn native_navigation_accepts_only_private_local_token_url() {
+        assert!(
+            super::validated_harness_navigation("http://localhost:49152/?token=launch-token")
+                .is_ok()
+        );
         for url in [
-            "http://localhost:49152/?token=launch-token",
+            "http://localhost:49152/",
+            "http://localhost:49152/?token=",
+            "http://localhost:49152/?token=one&token=two",
+            "http://localhost:49152/?other=value",
             "http://localhost:49152/#token",
             "http://localhost:49152/other",
             "http://localhost/",
@@ -1172,23 +1073,6 @@ mod tests {
         ] {
             assert!(super::validated_harness_navigation(url).is_err(), "{url}");
         }
-    }
-
-    #[cfg(desktop)]
-    #[test]
-    fn auth_cookie_preserves_strict_policy_and_rejects_stale_values() {
-        let current = super::embedded_auth_cookie("session".into(), "current-signed-value".into());
-        let stale = super::embedded_auth_cookie("session".into(), "previous-signed-value".into());
-        assert!(!super::matches_auth_cookie(&stale, &current));
-        assert!(super::matches_auth_cookie(&current, &current));
-        assert_eq!(
-            current.same_site(),
-            Some(tauri::webview::cookie::SameSite::Strict)
-        );
-        assert_eq!(current.http_only(), Some(true));
-        assert_eq!(current.secure(), Some(false));
-        assert_eq!(current.domain(), Some("localhost"));
-        assert_eq!(current.path(), Some("/"));
     }
 
     #[test]
