@@ -1,0 +1,19 @@
+name: Remove superseded v0.1.13 release
+
+on:
+  push:
+    branches: [codex/publish-test-artifact]
+    paths: [.github/workflows/remove-v0.1.13.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  remove-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete v0.1.13 release and tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release delete v0.1.13 --cleanup-tag --yes --repo "${GITHUB_REPOSITORY}"
