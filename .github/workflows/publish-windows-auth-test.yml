@@ -19,18 +19,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh run download 35816096567 \
+          gh run download 35819076412 \
             --repo "${GITHUB_REPOSITORY}" \
-            --name DSH-Desktop-0.1.14-test.1-windows-x64 \
+            --name DSH-Desktop-0.1.14-test.2-windows-x64 \
             --dir test-artifact
       - name: Publish public prerelease download
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create v0.1.14-test.1 \
+          gh release create v0.1.14-test.2 \
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
-            --title "DSH Desktop v0.1.14-test.1" \
+            --title "DSH Desktop v0.1.14-test.2" \
             --prerelease \
-            --notes "Windows authentication regression test build. This prerelease is for manual validation only and is not offered by the in-app updater." \
+            --notes "Windows authentication and in-use upgrade regression test build. The installer now closes DSH Desktop and its bundled Node.js runtime before replacing files without affecting unrelated Node.js applications. This prerelease is for manual validation only and is not offered by the in-app updater." \
             test-artifact/*
