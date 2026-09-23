@@ -1,0 +1,36 @@
+name: Publish Windows authentication test installer
+
+on:
+  push:
+    branches: [codex/publish-test-artifact]
+    paths: [.github/workflows/publish-windows-auth-test.yml]
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish-test-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download verified Windows test artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh run download 35816096567 \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name DSH-Desktop-0.1.14-test.1-windows-x64 \
+            --dir test-artifact
+      - name: Publish public prerelease download
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create v0.1.14-test.1 \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${GITHUB_SHA}" \
+            --title "DSH Desktop v0.1.14-test.1" \
+            --prerelease \
+            --notes "Windows authentication regression test build. This prerelease is for manual validation only and is not offered by the in-app updater." \
+            test-artifact/*
