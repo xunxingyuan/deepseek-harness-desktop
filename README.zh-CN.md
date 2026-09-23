@@ -14,14 +14,14 @@ Harness 及其 Web UI 均已内置，无需安装 Node.js，也不需要手动�
 
 ## 下载
 
-**当前版本：[DSH Desktop v0.1.13](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.13)**
+**当前版本：[DSH Desktop v0.1.14](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.14)**
 
 | 平台 | 推荐下载 |
 | --- | --- |
-| Windows x64 | [EXE 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.13/DSH.Desktop_0.1.13_x64-setup.exe) |
-| Windows x64（企业或集中部署） | [MSI 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.13/DSH.Desktop_0.1.13_x64_zh-CN.msi) |
-| Apple 芯片 Mac | [DMG 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.13/DSH.Desktop_0.1.13_aarch64.dmg) |
-| Intel 芯片 Mac | [DMG 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.13/DSH.Desktop_0.1.13_x64.dmg) |
+| Windows x64 | [EXE 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.14/DSH.Desktop_0.1.14_x64-setup.exe) |
+| Windows x64（企业或集中部署） | [MSI 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.14/DSH.Desktop_0.1.14_x64_zh-CN.msi) |
+| Apple 芯片 Mac | [DMG 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.14/DSH.Desktop_0.1.14_aarch64.dmg) |
+| Intel 芯片 Mac | [DMG 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.14/DSH.Desktop_0.1.14_x64.dmg) |
 
 以后发布的新版本可以统一从
 [最新版下载页面](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/latest)
