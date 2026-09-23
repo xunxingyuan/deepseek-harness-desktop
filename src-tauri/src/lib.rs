@@ -239,8 +239,9 @@ impl BackendManager {
                 match event {
                     CommandEvent::Stdout(bytes) => {
                         let line = String::from_utf8_lossy(&bytes).trim().to_owned();
-                        log::info!(target: "dsh", "{line}");
                         if let Some(url) = readiness_url(&line) {
+                            // The readiness URL contains a credential. Never persist it in logs.
+                            log::info!(target: "dsh", "Harness local endpoint ready");
                             #[cfg(desktop)]
                             let navigation_url = match prime_webview_cookie(&app_for_events, &url) {
                                 Ok(url) => {
@@ -254,7 +255,16 @@ impl BackendManager {
                                     log::warn!(
                                         "failed to prime embedded WebView authentication: {error}"
                                     );
-                                    url
+                                    let status = BackendStatus::failed(format!(
+                                        "本地服务认证未完成，请重试：{error}"
+                                    ));
+                                    let mut runtime = manager.inner.lock().await;
+                                    if runtime.generation == generation {
+                                        runtime.status = status.clone();
+                                        drop(runtime);
+                                        emit_status(&app_for_events, status);
+                                    }
+                                    continue;
                                 }
                             };
                             #[cfg(not(desktop))]
@@ -266,6 +276,8 @@ impl BackendManager {
                                 drop(runtime);
                                 emit_status(&app_for_events, status);
                             }
+                        } else {
+                            log::info!(target: "dsh", "{line}");
                         }
                     }
                     CommandEvent::Stderr(bytes) => {
@@ -821,34 +833,57 @@ fn prime_webview_cookie(app: &AppHandle, authenticated_url: &str) -> Result<Stri
         }
     }
     let (name, value) = parse_set_cookie(&response)?;
-    let cookie_name = name.clone();
-    let cookie = tauri::webview::Cookie::build((name, value))
-        .domain(EMBEDDED_WEBVIEW_HOST)
-        .path("/")
-        .http_only(true)
-        .build();
+    let cookie = embedded_auth_cookie(name, value);
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| "找不到主窗口，无法写入认证 Cookie".to_owned())?;
     window
-        .set_cookie(cookie)
+        .set_cookie(cookie.clone())
         .map_err(|error| format!("无法写入 WebView 认证 Cookie：{error}"))?;
 
-    #[cfg(target_os = "macos")]
-    {
-        let check_url = Url::parse(&format!("http://{EMBEDDED_WEBVIEW_HOST}:{port}/"))
-            .map_err(|error| format!("无法检查 WebView 认证 Cookie：{error}"))?;
+    // Tauri queues set_cookie on the UI thread; its Ok result does not mean
+    // WebView2 has persisted it. Read back the exact value on this worker task
+    // (never in a synchronous UI event handler, which deadlocks on Windows).
+    navigation_url.set_query(None);
+    navigation_url.set_fragment(None);
+    for attempt in 0..20 {
         let visible = window
-            .cookies_for_url(check_url)
+            .cookies_for_url(navigation_url.clone())
             .map_err(|error| format!("无法读取 WebView 认证 Cookie：{error}"))?
             .iter()
-            .any(|item| item.name() == cookie_name);
-        if !visible {
-            return Err("WebView Cookie 写入后不可见".to_owned());
+            .any(|item| matches_auth_cookie(item, &cookie));
+        if visible {
+            // Do not exchange the token again in the WebView. Chromium can
+            // withhold Strict cookies on a renderer-initiated cross-site
+            // redirect from tauri.localhost. open_harness performs a native
+            // top-level navigation to this already authenticated clean URL.
+            return Ok(navigation_url.to_string());
+        }
+        if attempt < 19 {
+            std::thread::sleep(Duration::from_millis(100));
         }
     }
 
-    Ok(navigation_url.to_string())
+    Err("WebView 未能保存本次认证 Cookie，请检查 WebView2 或重试".to_owned())
+}
+
+#[cfg(desktop)]
+fn embedded_auth_cookie(name: String, value: String) -> tauri::webview::Cookie<'static> {
+    tauri::webview::Cookie::build((name, value))
+        .domain(EMBEDDED_WEBVIEW_HOST)
+        .path("/")
+        .http_only(true)
+        .same_site(tauri::webview::cookie::SameSite::Strict)
+        .secure(false)
+        .build()
+}
+
+#[cfg(desktop)]
+fn matches_auth_cookie(
+    actual: &tauri::webview::Cookie<'_>,
+    expected: &tauri::webview::Cookie<'_>,
+) -> bool {
+    actual.name() == expected.name() && actual.value() == expected.value()
 }
 
 #[cfg(desktop)]
@@ -891,6 +926,37 @@ fn emit_status(app: &AppHandle, status: BackendStatus) {
 #[tauri::command]
 async fn backend_status(manager: State<'_, BackendManager>) -> Result<BackendStatus, String> {
     Ok(manager.status().await)
+}
+
+#[tauri::command]
+async fn open_harness(app: AppHandle, manager: State<'_, BackendManager>) -> Result<(), String> {
+    // Use only the backend-owned URL, not a URL supplied by the frontend.
+    let runtime = manager.inner.lock().await;
+    if runtime.status.phase != "running" {
+        return Err("本地服务尚未完成认证，请重试".to_owned());
+    }
+    let url = runtime.status.url.as_deref().ok_or("本地服务地址不可用")?;
+    let parsed = validated_harness_navigation(url)?;
+    app.get_webview_window("main")
+        .ok_or("找不到主窗口")?
+        .navigate(parsed)
+        .map_err(|error| format!("无法打开本地服务：{error}"))
+}
+
+fn validated_harness_navigation(url: &str) -> Result<Url, String> {
+    let parsed = Url::parse(url).map_err(|_| "本地服务地址无效")?;
+    if parsed.scheme() != "http"
+        || parsed.host_str() != Some(EMBEDDED_WEBVIEW_HOST)
+        || parsed.port().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.path() != "/"
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err("本地服务地址未通过认证检查".to_owned());
+    }
+    Ok(parsed)
 }
 
 #[tauri::command]
@@ -937,7 +1003,7 @@ pub fn run() {
             }
         })
         .manage(manager.clone())
-        .invoke_handler(tauri::generate_handler![backend_status, restart_backend])
+        .invoke_handler(tauri::generate_handler![backend_status, restart_backend, open_harness])
         .setup(move |app| {
             #[cfg(target_os = "macos")]
             {
@@ -1089,6 +1155,40 @@ mod tests {
             readiness_url("dsh web: http://127.0.0.1:49152/?token=launch-token"),
             Some("http://127.0.0.1:49152/?token=launch-token".into())
         );
+    }
+
+    #[test]
+    fn native_navigation_rejects_tokens_and_non_local_destinations() {
+        assert!(super::validated_harness_navigation("http://localhost:49152/").is_ok());
+        for url in [
+            "http://localhost:49152/?token=launch-token",
+            "http://localhost:49152/#token",
+            "http://localhost:49152/other",
+            "http://localhost/",
+            "http://127.0.0.1:49152/",
+            "http://localhost.example:49152/",
+            "http://user:password@localhost:49152/",
+            "https://localhost:49152/",
+        ] {
+            assert!(super::validated_harness_navigation(url).is_err(), "{url}");
+        }
+    }
+
+    #[cfg(desktop)]
+    #[test]
+    fn auth_cookie_preserves_strict_policy_and_rejects_stale_values() {
+        let current = super::embedded_auth_cookie("session".into(), "current-signed-value".into());
+        let stale = super::embedded_auth_cookie("session".into(), "previous-signed-value".into());
+        assert!(!super::matches_auth_cookie(&stale, &current));
+        assert!(super::matches_auth_cookie(&current, &current));
+        assert_eq!(
+            current.same_site(),
+            Some(tauri::webview::cookie::SameSite::Strict)
+        );
+        assert_eq!(current.http_only(), Some(true));
+        assert_eq!(current.secure(), Some(false));
+        assert_eq!(current.domain(), Some("localhost"));
+        assert_eq!(current.path(), Some("/"));
     }
 
     #[test]

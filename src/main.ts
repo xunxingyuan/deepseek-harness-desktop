@@ -169,7 +169,18 @@ function navigateToHarness(url: string): void {
     return
   }
   navigating = true
-  window.location.replace(parsed.toString())
+  // Native navigation avoids Chromium carrying the bootstrap page's
+  // cross-site initiator into Harness's SameSite=Strict authentication.
+  void invoke('open_harness').catch((error: unknown) => {
+    navigating = false
+    latestBackendStatus = {
+      phase: 'failed',
+      message: `无法打开本地服务：${String(error)}`,
+      url: null,
+      harnessVersion: HARNESS_VERSION,
+    }
+    renderStatus(latestBackendStatus)
+  })
 }
 
 function present(): void {
