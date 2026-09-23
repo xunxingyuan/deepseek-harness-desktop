@@ -1,6 +1,6 @@
 {
   "name": "deepseek-harness-desktop",
-  "version": "0.1.13-test.1",
+  "version": "0.1.13",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.14.0",

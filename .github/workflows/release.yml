@@ -70,7 +70,7 @@ jobs:
             - 延续现有 rc.8 工作区数据目录，升级后项目与历史会话保持可见。
             - 新版会重建非权威的会话投影缓存；默认 JSON 持久化保持兼容。
             - 桌面运行固定使用启动时加载 profile，避免开发态文件监听占用资源。
-            - 修复 macOS 内嵌 WebView 未接收新版浏览器认证 Cookie 导致的空白页问题。
+            - 修复 Windows 和 macOS 内嵌 WebView 未正确保存浏览器认证 Cookie 导致的认证失败和空白页问题。
             - 安装包内置 Node.js，无需配置开发环境或使用命令行。
 
             What's new
@@ -80,7 +80,7 @@ jobs:
             - Reuses the existing rc.8 data directory so projects and session history remain visible after upgrading.
             - Rebuilds the non-authoritative session projection cache; default JSON persistence remains compatible.
             - Uses startup-only profile loading in the desktop runtime to avoid development file watchers.
-            - Fixes blank pages caused by the macOS embedded WebView not receiving the new browser-auth cookie.
+            - Fixes authentication failures and blank pages caused by Windows and macOS embedded WebViews not persisting the browser-auth cookie.
             - Includes Node.js; no development environment or command line is required.
 
             下载 / Downloads
@@ -119,7 +119,7 @@ jobs:
             - 延续现有 rc.8 工作区数据目录，升级后项目与历史会话保持可见。
             - 新版会重建非权威的会话投影缓存；默认 JSON 持久化保持兼容。
             - 桌面运行固定使用启动时加载 profile，避免开发态文件监听占用资源。
-            - 修复 macOS 内嵌 WebView 未接收新版浏览器认证 Cookie 导致的空白页问题。
+            - 修复 Windows 和 macOS 内嵌 WebView 未正确保存浏览器认证 Cookie 导致的认证失败和空白页问题。
             - 安装包内置 Node.js，无需配置开发环境或使用命令行。
 
             What's new
@@ -129,7 +129,7 @@ jobs:
             - Reuses the existing rc.8 data directory so projects and session history remain visible after upgrading.
             - Rebuilds the non-authoritative session projection cache; default JSON persistence remains compatible.
             - Uses startup-only profile loading in the desktop runtime to avoid development file watchers.
-            - Fixes blank pages caused by the macOS embedded WebView not receiving the new browser-auth cookie.
+            - Fixes authentication failures and blank pages caused by Windows and macOS embedded WebViews not persisting the browser-auth cookie.
             - Includes Node.js; no development environment or command line is required.
 
             下载 / Downloads
