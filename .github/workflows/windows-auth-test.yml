@@ -46,7 +46,7 @@ jobs:
           "$($hash.Hash.ToLower())  $($installer[0].Name)" | Set-Content -Encoding utf8 (Join-Path $installer[0].DirectoryName 'SHA256SUMS.txt')
       - uses: actions/upload-artifact@v4
         with:
-          name: DSH-Desktop-0.1.14-test.2-windows-x64
+          name: DSH-Desktop-0.1.14-test.3-windows-x64
           path: |
             src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
             src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/SHA256SUMS.txt

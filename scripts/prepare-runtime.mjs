@@ -134,7 +134,7 @@ async function main() {
 
     const extracted = join(temporary, stem)
     const binarySuffix = target.includes('windows') ? '.exe' : ''
-    const sidecar = join(runtimeDir, `node-${target}${binarySuffix}`)
+    const sidecar = join(runtimeDir, `dsh-runtime-${target}${binarySuffix}`)
     await copyFile(join(extracted, distribution.binary), sidecar)
     if (!binarySuffix) await chmod(sidecar, 0o755)
 

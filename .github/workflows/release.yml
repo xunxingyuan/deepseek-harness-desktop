@@ -163,7 +163,7 @@ jobs:
           hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT_POINT"
 
           APP="$MOUNT_POINT/DSH Desktop.app"
-          NODE="$APP/Contents/MacOS/node"
+          NODE="$APP/Contents/MacOS/dsh-runtime"
           ENTITLEMENTS="$RUNNER_TEMP/dsh-app-entitlements.plist"
 
           test -x "$NODE"

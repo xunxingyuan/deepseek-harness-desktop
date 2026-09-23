@@ -206,7 +206,7 @@ impl BackendManager {
 
         let command = app
             .shell()
-            .sidecar("node")
+            .sidecar("dsh-runtime")
             .map_err(|error| format!("无法定位内置 Node.js：{error}"))?
             .args([
                 entry.to_string_lossy().into_owned(),
@@ -1254,7 +1254,9 @@ mod tests {
             .find(|path| {
                 path.file_name()
                     .and_then(|name| name.to_str())
-                    .is_some_and(|name| name.starts_with("node-") && !name.ends_with(".json"))
+                    .is_some_and(|name| {
+                        name.starts_with("dsh-runtime-") && !name.ends_with(".json")
+                    })
             })
             .expect("prepared Node.js sidecar should exist");
         let version = Command::new(bundled_node)
