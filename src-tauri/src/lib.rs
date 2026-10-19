@@ -17,16 +17,14 @@ use tauri_plugin_shell::{
 };
 use url::Url;
 
-const HARNESS_VERSION: &str = "0.1.6-alpha.2";
+const HARNESS_VERSION: &str = "0.2.1-rc.2";
 const PROJECT_HOMEPAGE: &str = "https://github.com/xunxingyuan/deepseek-harness-desktop";
 const PROJECT_HOMEPAGE_MENU_ID: &str = "open-project-homepage";
 const DESKTOP_PROFILE_NAME: &str = "web";
-const DESKTOP_PROFILE_RELOAD: &str = "startup";
 const DESKTOP_PROFILE_BUNDLES: [&str; 2] = ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"];
 const EMBEDDED_WEBVIEW_HOST: &str = "localhost";
-// The alpha.2 workspace domain remains v2, so keep this directory stable when
-// upgrading. Its projection cache is v7/per-record and is safely rebuilt as a
-// non-authoritative cache without moving or deleting workspace data.
+// Harness 0.2.1-rc.2 still uses workspace domain v2. Keep the established home
+// so upgrades retain workspaces, credentials, profile patches and sessions.
 const HARNESS_DATA_SCHEMA: &str = "rc8";
 const HARNESS_MIGRATION_VERSION: &str = "workspace-v1";
 const MAX_DIAGNOSTIC_LINES: usize = 12;
@@ -216,6 +214,8 @@ impl BackendManager {
                 "127.0.0.1".into(),
                 "--port".into(),
                 "0".into(),
+                "--trusted-host".into(),
+                EMBEDDED_WEBVIEW_HOST.into(),
             ])
             .env("DSH_HOME", dsh_home)
             .env("DSH_AGENTS_HOME", agents_home)
@@ -436,10 +436,9 @@ fn prepare_desktop_profile(dsh_home: &Path) -> Result<(), String> {
             ),
         );
     }
-    profile.insert(
-        "patchReload".into(),
-        Value::String(DESKTOP_PROFILE_RELOAD.to_owned()),
-    );
+    // Harness 0.2 no longer reads patchReload from profile manifests. Remove
+    // the desktop-owned legacy flag; preserve bundles and all other settings.
+    profile.remove("patchReload");
     write_json_atomically(&manifest_path, &manifest)
 }
 
@@ -978,7 +977,7 @@ mod tests {
         merge_workspace_storage, migrate_legacy_harness_data, prepare_desktop_profile,
         read_workspace_storage, readiness_url, safe_archive_path, StorageUnit, WorkspaceGlobal,
         WorkspaceRecord, WorkspaceStorage, WorkspaceTables, DESKTOP_PROFILE_BUNDLES,
-        DESKTOP_PROFILE_RELOAD, HARNESS_MIGRATION_VERSION,
+        HARNESS_MIGRATION_VERSION, HARNESS_VERSION,
     };
     use serde_json::{Map, Value};
     use std::collections::BTreeMap;
@@ -1084,10 +1083,7 @@ mod tests {
             &fs::read(&manifest_path).expect("desktop profile manifest should exist"),
         )
         .expect("desktop profile manifest should be valid JSON");
-        assert_eq!(
-            manifest["dsh"]["profile"]["patchReload"],
-            DESKTOP_PROFILE_RELOAD
-        );
+        assert!(manifest["dsh"]["profile"].get("patchReload").is_none());
         assert_eq!(
             manifest["dsh"]["profile"]["bundles"],
             serde_json::json!(DESKTOP_PROFILE_BUNDLES)
@@ -1095,7 +1091,8 @@ mod tests {
 
         let custom = serde_json::json!({
             "name": "custom-web",
-            "dsh": {"profile": {"bundles": ["custom-bundle"], "patchReload": "live"}}
+            "dependencies": {"custom-bundle": "1.0.0"},
+            "dsh": {"profile": {"bundles": ["custom-bundle"], "patchReload": "startup"}}
         });
         fs::write(
             &manifest_path,
@@ -1107,10 +1104,9 @@ mod tests {
             &fs::read(&manifest_path).expect("updated profile manifest should exist"),
         )
         .expect("updated profile manifest should be valid JSON");
-        assert_eq!(
-            updated["dsh"]["profile"]["patchReload"],
-            DESKTOP_PROFILE_RELOAD
-        );
+        assert!(updated["dsh"]["profile"].get("patchReload").is_none());
+        assert_eq!(updated["name"], custom["name"]);
+        assert_eq!(updated["dependencies"], custom["dependencies"]);
         assert_eq!(
             updated["dsh"]["profile"]["bundles"],
             serde_json::json!(["custom-bundle"])
@@ -1267,7 +1263,7 @@ mod tests {
         assert!(version.status.success());
         assert_eq!(
             String::from_utf8_lossy(&version.stdout).trim(),
-            "0.1.6-alpha.2"
+            HARNESS_VERSION
         );
         fs::remove_dir_all(&data_dir).expect("temporary runtime should be removable");
     }

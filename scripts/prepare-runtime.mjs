@@ -8,7 +8,7 @@ import extractZip from 'extract-zip'
 import * as tar from 'tar'
 
 const NODE_VERSION = 'v24.19.0'
-const HARNESS_VERSION = '0.1.6-alpha.2'
+const HARNESS_VERSION = '0.2.1-rc.2'
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const projectRoot = resolve(scriptDir, '..')
 const runtimeDir = join(projectRoot, 'src-tauri', 'runtime')
@@ -115,9 +115,12 @@ async function main() {
   try {
     const archive = join(temporary, filename)
     const checksums = join(temporary, 'SHASUMS256.txt')
+    const cachedArchive = argument('--node-archive')
     console.log(`Preparing Node.js ${NODE_VERSION} and DeepSeek Harness ${HARNESS_VERSION} for ${target}`)
     await Promise.all([
-      download(`${baseUrl}/${filename}`, archive),
+      cachedArchive
+        ? copyFile(resolve(cachedArchive), archive)
+        : download(`${baseUrl}/${filename}`, archive),
       download(`${baseUrl}/SHASUMS256.txt`, checksums),
     ])
     await verifyArchive(archive, filename, checksums)

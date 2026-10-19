@@ -27,6 +27,11 @@ You can always find the newest version on the
 [Latest Release](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/latest)
 page.
 
+Source version `0.1.15` targets [DeepSeek Harness 0.2.1-rc.2](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-rc.2).
+It adds upstream support for DeepSeek-V4.1-Flash-1017 and the DeepSeek Search/Fetch
+APIs. The download links above remain on the published release until `0.1.15`
+installers are available. See [release notes](CHANGELOG.md).
+
 > Starting with v0.1.2, macOS installers are signed with Apple Developer ID and
 > submitted to Apple for notarization.
 
@@ -37,9 +42,9 @@ page.
 
 DSH Desktop starts a private Harness server on a random `127.0.0.1` port, waits for
 its official readiness signal, and opens the built-in Web UI. Closing the app
-also stops the Harness process. The desktop runtime uses startup-only profile
-loading and does not enable development file-watcher hot reload, reducing
-background resource usage.
+also stops the Harness process. The WebView completes Harness's own token-to-cookie
+authentication through `localhost`; the server remains bound to `127.0.0.1`.
+The bundled runtime uses the dedicated `dsh-runtime` executable name.
 
 ## What gets bundled
 
@@ -47,7 +52,7 @@ Versions are deliberately pinned for reproducible releases:
 
 | Component | Version |
 | --- | --- |
-| DeepSeek Harness | `0.1.6-alpha.2` |
+| DeepSeek Harness | `0.2.1-rc.2` |
 | Node.js | `24.19.0` (Krypton LTS) |
 | Tauri JavaScript API | `2.11.1` |
 | Tauri CLI | `2.11.4` |
@@ -57,10 +62,11 @@ Versions are deliberately pinned for reproducible releases:
 > rollback. Starting with v0.1.6, DSH Desktop automatically imports legacy
 > workspace records and session history into rc.8 without overwriting current
 > rc.8 data. It backs up the current workspace index before migration and keeps
-> the original legacy data intact. Harness 0.1.6-alpha.2 keeps the workspace v2
+> the original legacy data intact. Harness 0.2.1-rc.2 keeps the workspace v2
 > schema, so upgrades continue using the existing directory instead of isolating
-> workspaces again. The non-authoritative session projection cache is rebuilt in
-> its new layout. Upstream removed the optional SQLite Session persistence
+> workspaces again. Upstream supplies readers and migrations for historical
+> session formats. The non-authoritative projection cache may be rebuilt.
+> Upstream removed the optional SQLite Session persistence
 > backend; export SQLite sessions with the older version before upgrading if you
 > explicitly enabled it. DSH Desktop's default JSON persistence is unaffected.
 
@@ -92,6 +98,10 @@ pnpm build:desktop
 
 Generated runtime files live in `src-tauri/runtime/` and are intentionally not
 committed.
+
+To reuse a downloaded Node.js distribution archive, pass
+`pnpm runtime:prepare -- --node-archive /absolute/path/to/archive`.
+It is still verified against the checksum downloaded from `nodejs.org`.
 
 ## Publishing a GitHub Release
 
@@ -162,7 +172,8 @@ upgrade safely:
    `scripts/prepare-runtime.mjs`.
 3. Regenerate `runtime/package-lock.json` with `npm install --package-lock-only`
    from the `runtime` directory.
-4. Run the desktop smoke test on Windows, Apple Silicon, and Intel macOS.
+4. Run `pnpm test:runtime` after preparing the runtime. Also run the desktop
+   smoke test on Windows, Apple Silicon, and Intel macOS before publishing.
 5. Publish a new wrapper version instead of changing an existing release.
 
 ## License

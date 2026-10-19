@@ -27,6 +27,11 @@ Harness 及其 Web UI 均已内置，无需安装 Node.js，也不需要手动�
 [最新版下载页面](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/latest)
 获取。
 
+当前源码版本 `0.1.15` 适配 [DeepSeek Harness 0.2.1-rc.2](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-rc.2)，
+跟进 DeepSeek-V4.1-Flash-1017 和 DeepSeek Search/Fetch API 支持。
+上方下载链接保持指向已发布版本，待 `0.1.15` 安装包发布后更新。
+详见[更新说明](CHANGELOG.md)。
+
 > v0.1.2 起，macOS 安装包使用 Apple Developer ID 签名并提交 Apple 公证。
 
 > v0.1.5 起，应用会在启动时检查最新 GitHub Release。发现新版后可以直接下载、
@@ -34,7 +39,8 @@ Harness 及其 Web UI 均已内置，无需安装 Node.js，也不需要手动�
 
 DSH Desktop 启动后会在随机的 `127.0.0.1` 本地端口运行 Harness 服务，
 等待服务正式就绪后打开内置 Web UI。关闭桌面应用时，Harness 进程也会一并停止。
-桌面版使用启动时加载 profile，不开启开发态文件热重载监听，减少后台资源占用。
+WebView 通过 `localhost` 完成 Harness 自身的令牌校验和 Cookie 设置；
+服务端仍仅监听 `127.0.0.1`。内置运行时使用独立的 `dsh-runtime` 程序名。
 
 ## 安装包包含的组件
 
@@ -42,7 +48,7 @@ DSH Desktop 启动后会在随机的 `127.0.0.1` 本地端口运行 Harness 服�
 
 | 组件 | 版本 |
 | --- | --- |
-| DeepSeek Harness | `0.1.6-alpha.2` |
+| DeepSeek Harness | `0.2.1-rc.2` |
 | Node.js | `24.19.0`（Krypton LTS） |
 | Tauri JavaScript API | `2.11.1` |
 | Tauri CLI | `2.11.4` |
@@ -50,14 +56,19 @@ DSH Desktop 启动后会在随机的 `127.0.0.1` 本地端口运行 Harness 服�
 > Harness rc.8 使用了不兼容的 SQLite 存储格式。DSH Desktop v0.1.4 会使用新的
 > 数据目录启动，同时保留旧版本本地数据以便回退。v0.1.6 起，应用会自动把旧工作区
 > 记录和历史会话导入 rc.8，并保留当前已有的 rc.8 数据；迁移前会备份工作区索引，
-> 原始旧数据也不会删除。Harness 0.1.6-alpha.2 继续使用 workspace v2，因此升级时
-> 继续使用现有目录，不会再次隔离工作区。新版会重建非权威的会话投影缓存；官方同时
+> 原始旧数据也不会删除。Harness 0.2.1-rc.2 继续使用 workspace v2，因此升级时
+> 继续使用现有目录，不会再次隔离工作区。官方提供历史会话格式的读取和迁移，
+> 非权威的投影缓存可能重建；官方早前已
 > 移除了可选的 SQLite Session 持久化后端。如果你曾主动配置 SQLite，请先用旧版本
 > 导出会话；DSH Desktop 默认使用的 JSON 持久化不受影响。
 
 运行时准备脚本会直接从 `nodejs.org` 下载 Node.js，使用官方 SHA-256
 校验和验证文件，并按照构建机器的原生目标平台部署由锁文件固定的 Harness npm
 依赖树。Harness 会以压缩归档形式写入安装包，首次启动时解压到当前用户的应用数据目录。
+
+开发时可用 `pnpm runtime:prepare -- --node-archive /absolute/path/to/archive`
+复用已下载的 Node.js 发行归档，仍会与 `nodejs.org` 的官方校验和比对。
+准备好运行时后，执行 `pnpm test:runtime` 验证认证、API、旧工作区和重启。
 
 ## 本地开发
 

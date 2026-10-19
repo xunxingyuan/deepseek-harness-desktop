@@ -1,6 +1,6 @@
 {
   "name": "deepseek-harness-desktop",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.14.0",
@@ -10,7 +10,8 @@
     "runtime:prepare": "node scripts/prepare-runtime.mjs",
     "build:desktop": "pnpm runtime:prepare && tauri build",
     "check": "tsc --noEmit && cargo check --manifest-path src-tauri/Cargo.toml",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:runtime": "node scripts/smoke-runtime.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "2.11.1",

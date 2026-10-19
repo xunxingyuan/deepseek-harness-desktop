@@ -52,6 +52,10 @@ jobs:
         env:
           APPLE_SIGNING_IDENTITY: ${{ runner.os == 'macOS' && vars.ENABLE_APPLE_SIGNING == 'true' && secrets.APPLE_SIGNING_IDENTITY || '' }}
         run: pnpm runtime:prepare -- --target ${{ matrix.target }}
+      - name: Verify bundled runtime authentication and upgrade compatibility
+        run: |
+          pnpm test:runtime
+          pnpm test:runtime --uncompressed
       - name: Build unsigned installers and attach to GitHub Release
         if: ${{ vars.ENABLE_APPLE_SIGNING != 'true' }}
         uses: tauri-apps/tauri-action@v1.0.0
@@ -65,25 +69,21 @@ jobs:
           releaseBody: |
             更新内容
 
-            - 内置 DeepSeek Harness 0.1.6-alpha.2，跟进官方新版能力与修复。
-            - 优化长会话导航、渲染性能和图片消息处理。
-            - 延续现有 rc.8 工作区数据目录，升级后项目与历史会话保持可见。
-            - 新版会重建非权威的会话投影缓存；默认 JSON 持久化保持兼容。
-            - 桌面运行固定使用启动时加载 profile，避免开发态文件监听占用资源。
-            - 修复 Windows 和 macOS 内嵌 WebView 认证失败和空白页问题，由 Harness 完成令牌校验和 Cookie 设置。
-            - Windows 内置运行时改用独立的 `dsh-runtime.exe` 进程名，修复升级时旧版 `node.exe` 占用文件导致安装失败的问题。
-            - 安装包内置 Node.js，无需配置开发环境或使用命令行。
+            - 内置 DeepSeek Harness 0.2.1-rc.2，适配 DeepSeek-V4.1-Flash-1017。
+            - 跟进 DeepSeek Search 和 Fetch API，可在网页搜索设置中开启。
+            - 适配新版 profile 配置，移除已废弃的 patchReload 字段并保留自定义插件配置。
+            - 延续原有工作区、历史会话、凭据和数据目录。
+            - 保留 WebView 原生认证流程和 Windows 独立运行时升级保护。
+            - 内置 Node.js，无需安装环境或运行命令行。
 
             What's new
 
-            - Bundles DeepSeek Harness 0.1.6-alpha.2 with the latest upstream capabilities and fixes.
-            - Improves long-conversation navigation, rendering performance, and image message handling.
-            - Reuses the existing rc.8 data directory so projects and session history remain visible after upgrading.
-            - Rebuilds the non-authoritative session projection cache; default JSON persistence remains compatible.
-            - Uses startup-only profile loading in the desktop runtime to avoid development file watchers.
-            - Fixes authentication failures and blank pages in Windows and macOS embedded WebViews by letting Harness complete token validation and cookie setup.
-            - Gives the bundled Windows runtime the dedicated `dsh-runtime.exe` process name, preventing legacy `node.exe` file locks from blocking upgrades.
-            - Includes Node.js; no development environment or command line is required.
+            - Bundles DeepSeek Harness 0.2.1-rc.2 with DeepSeek-V4.1-Flash-1017 support.
+            - Adds upstream DeepSeek Search and Fetch API support in Web Search settings.
+            - Adapts profile configuration by removing the retired patchReload field while preserving custom plugins.
+            - Reuses existing workspaces, session history, credentials, and data directories.
+            - Retains native WebView authentication and the dedicated Windows runtime upgrade protection.
+            - Includes Node.js; no environment setup or command line is required.
 
             下载 / Downloads
 
@@ -116,25 +116,21 @@ jobs:
           releaseBody: |
             更新内容
 
-            - 内置 DeepSeek Harness 0.1.6-alpha.2，跟进官方新版能力与修复。
-            - 优化长会话导航、渲染性能和图片消息处理。
-            - 延续现有 rc.8 工作区数据目录，升级后项目与历史会话保持可见。
-            - 新版会重建非权威的会话投影缓存；默认 JSON 持久化保持兼容。
-            - 桌面运行固定使用启动时加载 profile，避免开发态文件监听占用资源。
-            - 修复 Windows 和 macOS 内嵌 WebView 认证失败和空白页问题，由 Harness 完成令牌校验和 Cookie 设置。
-            - Windows 内置运行时改用独立的 `dsh-runtime.exe` 进程名，修复升级时旧版 `node.exe` 占用文件导致安装失败的问题。
-            - 安装包内置 Node.js，无需配置开发环境或使用命令行。
+            - 内置 DeepSeek Harness 0.2.1-rc.2，适配 DeepSeek-V4.1-Flash-1017。
+            - 跟进 DeepSeek Search 和 Fetch API，可在网页搜索设置中开启。
+            - 适配新版 profile 配置，移除已废弃的 patchReload 字段并保留自定义插件配置。
+            - 延续原有工作区、历史会话、凭据和数据目录。
+            - 保留 WebView 原生认证流程和 Windows 独立运行时升级保护。
+            - 内置 Node.js，无需安装环境或运行命令行。
 
             What's new
 
-            - Bundles DeepSeek Harness 0.1.6-alpha.2 with the latest upstream capabilities and fixes.
-            - Improves long-conversation navigation, rendering performance, and image message handling.
-            - Reuses the existing rc.8 data directory so projects and session history remain visible after upgrading.
-            - Rebuilds the non-authoritative session projection cache; default JSON persistence remains compatible.
-            - Uses startup-only profile loading in the desktop runtime to avoid development file watchers.
-            - Fixes authentication failures and blank pages in Windows and macOS embedded WebViews by letting Harness complete token validation and cookie setup.
-            - Gives the bundled Windows runtime the dedicated `dsh-runtime.exe` process name, preventing legacy `node.exe` file locks from blocking upgrades.
-            - Includes Node.js; no development environment or command line is required.
+            - Bundles DeepSeek Harness 0.2.1-rc.2 with DeepSeek-V4.1-Flash-1017 support.
+            - Adds upstream DeepSeek Search and Fetch API support in Web Search settings.
+            - Adapts profile configuration by removing the retired patchReload field while preserving custom plugins.
+            - Reuses existing workspaces, session history, credentials, and data directories.
+            - Retains native WebView authentication and the dedicated Windows runtime upgrade protection.
+            - Includes Node.js; no environment setup or command line is required.
 
             下载 / Downloads
 
