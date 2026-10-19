@@ -14,23 +14,22 @@ install Node.js or run `npx @deepseek-ai/dsh web`.
 
 ## Download
 
-**Current release: [DSH Desktop v0.1.14](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.14)**
+**Current release: [DSH Desktop v0.1.15](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.15)**
 
 | Platform | Recommended download |
 | --- | --- |
-| Windows x64 | [EXE installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.14/DSH.Desktop_0.1.14_x64-setup.exe) |
-| Windows x64 (managed deployment) | [MSI installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.14/DSH.Desktop_0.1.14_x64_zh-CN.msi) |
-| Apple Silicon Mac | [DMG installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.14/DSH.Desktop_0.1.14_aarch64.dmg) |
-| Intel Mac | [DMG installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.14/DSH.Desktop_0.1.14_x64.dmg) |
+| Windows x64 | [EXE installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.15/DSH.Desktop_0.1.15_x64-setup.exe) |
+| Windows x64 (managed deployment) | [MSI installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.15/DSH.Desktop_0.1.15_x64_zh-CN.msi) |
+| Apple Silicon Mac | [DMG installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.15/DSH.Desktop_0.1.15_aarch64.dmg) |
+| Intel Mac | [DMG installer](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.15/DSH.Desktop_0.1.15_x64.dmg) |
 
 You can always find the newest version on the
 [Latest Release](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/latest)
 page.
 
-Source version `0.1.15` targets [DeepSeek Harness 0.2.1-rc.2](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-rc.2).
-It adds upstream support for DeepSeek-V4.1-Flash-1017 and the DeepSeek Search/Fetch
-APIs. The download links above remain on the published release until `0.1.15`
-installers are available. See [release notes](CHANGELOG.md).
+Version `0.1.15` bundles [DeepSeek Harness 0.2.1-rc.2](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-rc.2),
+with upstream support for DeepSeek-V4.1-Flash-1017 and the DeepSeek Search/Fetch
+APIs. It reuses existing workspace and session data. See [release notes](CHANGELOG.md).
 
 > Starting with v0.1.2, macOS installers are signed with Apple Developer ID and
 > submitted to Apple for notarization.

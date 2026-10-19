@@ -14,22 +14,22 @@ Harness 及其 Web UI 均已内置，无需安装 Node.js，也不需要手动�
 
 ## 下载
 
-**当前版本：[DSH Desktop v0.1.14](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.14)**
+**当前版本：[DSH Desktop v0.1.15](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/tag/v0.1.15)**
 
 | 平台 | 推荐下载 |
 | --- | --- |
-| Windows x64 | [EXE 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.14/DSH.Desktop_0.1.14_x64-setup.exe) |
-| Windows x64（企业或集中部署） | [MSI 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.14/DSH.Desktop_0.1.14_x64_zh-CN.msi) |
-| Apple 芯片 Mac | [DMG 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.14/DSH.Desktop_0.1.14_aarch64.dmg) |
-| Intel 芯片 Mac | [DMG 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.14/DSH.Desktop_0.1.14_x64.dmg) |
+| Windows x64 | [EXE 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.15/DSH.Desktop_0.1.15_x64-setup.exe) |
+| Windows x64（企业或集中部署） | [MSI 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.15/DSH.Desktop_0.1.15_x64_zh-CN.msi) |
+| Apple 芯片 Mac | [DMG 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.15/DSH.Desktop_0.1.15_aarch64.dmg) |
+| Intel 芯片 Mac | [DMG 安装包](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/download/v0.1.15/DSH.Desktop_0.1.15_x64.dmg) |
 
 以后发布的新版本可以统一从
 [最新版下载页面](https://github.com/xunxingyuan/deepseek-harness-desktop/releases/latest)
 获取。
 
-当前源码版本 `0.1.15` 适配 [DeepSeek Harness 0.2.1-rc.2](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-rc.2)，
+`0.1.15` 已适配 [DeepSeek Harness 0.2.1-rc.2](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-rc.2)，
 跟进 DeepSeek-V4.1-Flash-1017 和 DeepSeek Search/Fetch API 支持。
-上方下载链接保持指向已发布版本，待 `0.1.15` 安装包发布后更新。
+升级后继续使用既有工作区和历史会话数据。
 详见[更新说明](CHANGELOG.md)。
 
 > v0.1.2 起，macOS 安装包使用 Apple Developer ID 签名并提交 Apple 公证。
